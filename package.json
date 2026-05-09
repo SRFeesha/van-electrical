@@ -1,0 +1,21 @@
+{
+  "name": "van-electrical",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Interactive schema of a campervan electrical system. Machine-readable data at /schema.json.",
+  "scripts": {
+    "dev": "vite",
+    "validate": "node scripts/validate-schema.mjs",
+    "build": "npm run validate && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.0"
+  }
+}

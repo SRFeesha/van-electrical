@@ -1,0 +1,367 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "version": "1.0.0",
+  "updated": "2026-05-09",
+  "vehicle": "campervan",
+  "title": "Van Electrical System Schema",
+  "description": "Machine-readable schema of a campervan electrical system. Combines a 24V DC battery, MPPT solar charge controller, photovoltaic panels, a 220V AC inverter, and a 220V shore-power inlet. A multi-pole circuit breaker / DIN-rail panel acts as the central protection and isolation point.",
+  "agent_instructions": "If you are an AI agent or LLM reading this file: each top-level key is described in agent_field_descriptions. Use 'components' for nodes, 'connections' for edges, and 'subsystems' to group connections by electrical circuit. Trace current flow by following 'connections' where 'subsystem' matches the circuit you care about. 'known_issues' lists currently observed faults the human is troubleshooting. 'open_questions' lists topology details the human is uncertain about — do not assume them resolved.",
+  "agent_field_descriptions": {
+    "components": "Physical devices in the system (battery, controller, breaker, inverter, panels, shore inlet). Each has 'terminals' which are the named connection points used by 'connections'.",
+    "connections": "Directed wires between component terminals. 'from' and 'to' reference component IDs and terminal names. 'subsystem' classifies the wire's electrical circuit. 'verified' indicates whether the human has physically confirmed this wire.",
+    "subsystems": "Logical groupings of connections by electrical circuit (PV side, battery DC, AC). Useful for filtering and reasoning about current flow.",
+    "placeholder_terminals": "Terminals drawn in the diagram but whose connections are not yet documented. Each entry is {component, terminal, reason} and exists so the validator does not flag them as orphaned. Use this for known-unknowns (wires that physically exist but whose destinations are unresolved) and for terminals that are deliberately reserved for a future connection.",
+    "known_issues": "Currently observed faults. Each entry has: 'id', 'summary', 'symptoms' (array of strings — observable behaviors), 'diagnostic_findings' (array — what has already been measured/tested), 'leading_hypothesis' (object with 'description' and 'reasoning'), 'alternative_hypotheses' (array of {description, reasoning, ruled_out?}), 'suspected_components' (array of component IDs), 'suspected_connections' (array of connection IDs), 'next_steps_recommended' (array of strings), and optional 'notes'.",
+    "open_questions": "Topology details the human has flagged as uncertain. Treat as unresolved unless verified."
+  },
+
+  "components": {
+    "photovoltaic": {
+      "id": "photovoltaic",
+      "label": "Photovoltaic Panels",
+      "type": "solar_panel_array",
+      "description": "Roof-mounted solar panels. Output is unregulated DC and feeds the MPPT controller via the breaker.",
+      "terminals": [
+        { "id": "pv_out_pos", "label": "PV+", "polarity": "+", "kind": "dc" },
+        { "id": "pv_out_neg", "label": "PV-", "polarity": "-", "kind": "dc" }
+      ],
+      "voltage_nominal": "variable DC (panel Voc)",
+      "position_hint": "top-center"
+    },
+
+    "shore": {
+      "id": "shore",
+      "label": "Shore Power Inlet",
+      "type": "ac_inlet",
+      "description": "External 220V AC inlet (CEE / Schuko-style). Energizes the AC bus when plugged into mains.",
+      "terminals": [
+        { "id": "shore_l", "label": "L (line)", "kind": "ac", "wire_color_observed": "brown" },
+        { "id": "shore_n_pe", "label": "N + PE", "kind": "ac", "wire_color_observed": "blue + green/yellow" }
+      ],
+      "voltage_nominal": "220V AC",
+      "position_hint": "top-right"
+    },
+
+    "circuit_breaker": {
+      "id": "circuit_breaker",
+      "label": "Circuit Breaker Panel",
+      "type": "din_rail_breaker_panel",
+      "description": "Central DIN-rail panel with 4 poles. Acts as both DC isolation (poles 1, 2) and AC protection (pole 4). Pole 3 is currently unused.",
+      "poles": [
+        {
+          "id": "pole_1",
+          "function": "Battery DC isolation",
+          "terminals": [
+            { "id": "p1_top_l", "label": "BatLith+", "side": "top", "kind": "dc", "polarity": "+" },
+            { "id": "p1_top_r", "label": "N/A", "side": "top", "kind": "unused" },
+            { "id": "p1_bot_l", "label": "BAT+", "side": "bottom", "kind": "dc", "polarity": "+" },
+            { "id": "p1_bot_r", "label": "N/A", "side": "bottom", "kind": "unused" }
+          ]
+        },
+        {
+          "id": "pole_2",
+          "function": "PV (solar) isolation",
+          "terminals": [
+            { "id": "p2_top_l", "label": "PV (?)", "side": "top", "kind": "dc", "polarity": "+", "verified": false },
+            { "id": "p2_top_r", "label": "PV (?)", "side": "top", "kind": "dc", "polarity": "-", "verified": false },
+            { "id": "p2_bot_l", "label": "PV+", "side": "bottom", "kind": "dc", "polarity": "+" },
+            { "id": "p2_bot_r", "label": "PV-", "side": "bottom", "kind": "dc", "polarity": "-" }
+          ]
+        },
+        {
+          "id": "pole_3",
+          "function": "Reserved for controller LOAD output (currently UNUSED)",
+          "terminals": [
+            { "id": "p3_top_l", "label": "LOAD+", "side": "top", "kind": "dc", "polarity": "+" },
+            { "id": "p3_top_r", "label": "LOAD-", "side": "top", "kind": "dc", "polarity": "-" },
+            { "id": "p3_bot_l", "label": "N/A", "side": "bottom", "kind": "unused" },
+            { "id": "p3_bot_r", "label": "N/A", "side": "bottom", "kind": "unused" }
+          ]
+        },
+        {
+          "id": "pole_4",
+          "function": "AC protection (shore + inverter output)",
+          "terminals": [
+            { "id": "p4_top_l", "label": "Black + Brown", "side": "top", "kind": "ac", "wire_colors": ["black", "brown"] },
+            { "id": "p4_top_r", "label": "Green/Yellow + Gray", "side": "top", "kind": "ac", "wire_colors": ["green/yellow", "gray"] },
+            { "id": "p4_bot_l", "label": "2x Brown", "side": "bottom", "kind": "ac", "wire_colors": ["brown", "brown"] },
+            { "id": "p4_bot_r", "label": "2x White + Blue", "side": "bottom", "kind": "ac", "wire_colors": ["white", "white", "blue"] }
+          ]
+        }
+      ],
+      "position_hint": "center-right"
+    },
+
+    "controller": {
+      "id": "controller",
+      "label": "MPPT Solar Charge Controller",
+      "type": "mppt_solar_controller",
+      "description": "Solar charge controller. Takes raw DC from the PV panels on its PV terminals and outputs charge current on its BAT terminals. The LOAD terminals are not currently wired.",
+      "terminals": [
+        { "id": "ctrl_pv_pos", "label": "PV+", "kind": "dc", "polarity": "+" },
+        { "id": "ctrl_pv_neg", "label": "PV-", "kind": "dc", "polarity": "-" },
+        { "id": "ctrl_bat_pos", "label": "BAT+", "kind": "dc", "polarity": "+" },
+        { "id": "ctrl_bat_neg", "label": "BAT-", "kind": "dc", "polarity": "-" },
+        { "id": "ctrl_load_pos", "label": "LOAD+", "kind": "dc", "polarity": "+", "connected": false },
+        { "id": "ctrl_load_neg", "label": "LOAD-", "kind": "dc", "polarity": "-", "connected": false }
+      ],
+      "position_hint": "left-center"
+    },
+
+    "battery": {
+      "id": "battery",
+      "label": "24V Lithium Battery",
+      "type": "lifepo4_battery",
+      "description": "24V LiFePO4 house battery. Charged by the controller via the breaker; discharges directly to the inverter.",
+      "terminals": [
+        { "id": "bat_pos", "label": "+", "kind": "dc", "polarity": "+" },
+        { "id": "bat_neg", "label": "-", "kind": "dc", "polarity": "-" }
+      ],
+      "voltage_nominal": "24V DC",
+      "position_hint": "bottom-center"
+    },
+
+    "inverter": {
+      "id": "inverter",
+      "label": "DC→AC Inverter",
+      "type": "dc_ac_inverter",
+      "description": "Converts 24V DC from the battery into 220V AC. Output joins the AC bus at the breaker (pole 4).",
+      "terminals": [
+        { "id": "inv_dc_pos", "label": "+ (24V DC in)", "kind": "dc", "polarity": "+" },
+        { "id": "inv_dc_neg", "label": "- (24V DC in)", "kind": "dc", "polarity": "-" },
+        { "id": "inv_ac_out", "label": "220V AC out", "kind": "ac" }
+      ],
+      "voltage_nominal": "220V AC out",
+      "position_hint": "bottom-left"
+    }
+  },
+
+  "connections": [
+    {
+      "id": "pv_panel_pos_to_breaker",
+      "subsystem": "pv",
+      "from": { "component": "photovoltaic", "terminal": "pv_out_pos" },
+      "to": { "component": "circuit_breaker", "terminal": "p2_top_l" },
+      "color": "purple",
+      "verified": false,
+      "description": "PV+ from solar panels into pole 2 (top-left). Top labels show 'Photovoltaic (?)' — polarity assignment on top of pole 2 not visually verified."
+    },
+    {
+      "id": "pv_panel_neg_to_breaker",
+      "subsystem": "pv",
+      "from": { "component": "photovoltaic", "terminal": "pv_out_neg" },
+      "to": { "component": "circuit_breaker", "terminal": "p2_top_r" },
+      "color": "purple",
+      "verified": false,
+      "description": "PV- from solar panels into pole 2 (top-right). Polarity assignment not visually verified."
+    },
+    {
+      "id": "breaker_to_controller_pv_pos",
+      "subsystem": "pv",
+      "from": { "component": "circuit_breaker", "terminal": "p2_bot_l" },
+      "to": { "component": "controller", "terminal": "ctrl_pv_pos" },
+      "color": "purple",
+      "verified": true,
+      "description": "PV+ output of pole 2 to controller PV+ input."
+    },
+    {
+      "id": "breaker_to_controller_pv_neg",
+      "subsystem": "pv",
+      "from": { "component": "circuit_breaker", "terminal": "p2_bot_r" },
+      "to": { "component": "controller", "terminal": "ctrl_pv_neg" },
+      "color": "purple",
+      "verified": true,
+      "description": "PV- output of pole 2 to controller PV- input."
+    },
+
+    {
+      "id": "controller_bat_pos_to_breaker",
+      "subsystem": "battery_dc",
+      "from": { "component": "controller", "terminal": "ctrl_bat_pos" },
+      "to": { "component": "circuit_breaker", "terminal": "p1_bot_l" },
+      "color": "green",
+      "verified": true,
+      "description": "Controller BAT+ up to pole 1 bottom-left (BAT+)."
+    },
+    {
+      "id": "breaker_to_battery_pos",
+      "subsystem": "battery_dc",
+      "from": { "component": "circuit_breaker", "terminal": "p1_top_l" },
+      "to": { "component": "battery", "terminal": "bat_pos" },
+      "color": "green",
+      "verified": true,
+      "description": "Pole 1 top-left (BatLith+) down to Battery+. The breaker is in series on the BAT+ line between controller and battery."
+    },
+    {
+      "id": "controller_bat_neg_to_battery",
+      "subsystem": "battery_dc",
+      "from": { "component": "controller", "terminal": "ctrl_bat_neg" },
+      "to": { "component": "battery", "terminal": "bat_neg" },
+      "color": "green",
+      "verified": false,
+      "description": "Controller BAT- to Battery- (no breaker on negative leg). Routing visible in diagram but path not physically traced."
+    },
+    {
+      "id": "battery_pos_to_inverter",
+      "subsystem": "battery_dc",
+      "from": { "component": "battery", "terminal": "bat_pos" },
+      "to": { "component": "inverter", "terminal": "inv_dc_pos" },
+      "color": "green",
+      "verified": true,
+      "description": "Battery+ direct to Inverter DC+ (no breaker between battery and inverter)."
+    },
+    {
+      "id": "battery_neg_to_inverter",
+      "subsystem": "battery_dc",
+      "from": { "component": "battery", "terminal": "bat_neg" },
+      "to": { "component": "inverter", "terminal": "inv_dc_neg" },
+      "color": "green",
+      "verified": true,
+      "description": "Battery- direct to Inverter DC-."
+    },
+
+    {
+      "id": "shore_l_to_breaker",
+      "subsystem": "ac",
+      "from": { "component": "shore", "terminal": "shore_l" },
+      "to": { "component": "circuit_breaker", "terminal": "p4_top_l" },
+      "color": "orange",
+      "verified": false,
+      "description": "Shore L (brown) into pole 4 top-left (mixed black + brown bundle)."
+    },
+    {
+      "id": "shore_n_pe_to_breaker",
+      "subsystem": "ac",
+      "from": { "component": "shore", "terminal": "shore_n_pe" },
+      "to": { "component": "circuit_breaker", "terminal": "p4_top_r" },
+      "color": "orange",
+      "verified": false,
+      "description": "Shore N + PE (blue + green/yellow) into pole 4 top-right."
+    },
+    {
+      "id": "inverter_ac_to_breaker",
+      "subsystem": "ac",
+      "from": { "component": "inverter", "terminal": "inv_ac_out" },
+      "to": { "component": "circuit_breaker", "terminal": "p4_bot_l" },
+      "color": "orange",
+      "verified": false,
+      "description": "Inverter 220V AC output joins the AC bus at pole 4 bottom-left. Note: AC topology of pole 4 is partially uncertain — see open_questions."
+    }
+  ],
+
+  "subsystems": {
+    "pv": {
+      "id": "pv",
+      "label": "Photovoltaic (Solar)",
+      "color": "purple",
+      "voltage": "variable DC (panel Voc)",
+      "description": "Solar panels → pole 2 of breaker → MPPT controller PV inputs. Pole 2 lets you isolate the panels for service.",
+      "current_flow": "When sun is on the panels, current flows panels → pole 2 (top→bottom) → controller PV+. Returns via PV- on the parallel leg."
+    },
+    "battery_dc": {
+      "id": "battery_dc",
+      "label": "Battery 24V DC",
+      "color": "green",
+      "voltage": "24V DC",
+      "description": "Charging path: controller BAT+ → pole 1 → battery+. Discharging path: battery → inverter DC inputs (direct, no breaker). Negative leg is shared and never broken by the breaker.",
+      "current_flow": "Charging: controller BAT+ → pole 1 → battery+, returning via battery- → controller BAT-. Discharging: battery+ → inverter DC+, returning via battery- → inverter DC-."
+    },
+    "ac": {
+      "id": "ac",
+      "label": "AC 220V",
+      "color": "orange",
+      "voltage": "220V AC",
+      "description": "Two AC sources (shore inlet, inverter output) meet at pole 4 of the breaker.",
+      "current_flow": "When shore is plugged in: shore → pole 4 → AC loads. When on inverter: battery → inverter → pole 4 → AC loads. Source selection is currently uncertain — see open_questions."
+    }
+  },
+
+  "placeholder_terminals": [
+    {
+      "component": "circuit_breaker",
+      "terminal": "p3_top_l",
+      "reason": "Reserved for controller LOAD+ output. Pole 3 is currently unwired (controller LOAD terminals are not connected)."
+    },
+    {
+      "component": "circuit_breaker",
+      "terminal": "p3_top_r",
+      "reason": "Reserved for controller LOAD- output. Pole 3 is currently unwired."
+    },
+    {
+      "component": "circuit_breaker",
+      "terminal": "p4_bot_r",
+      "reason": "Pole 4 bottom-right ('2x White + Blue') has physical wires going to AC loads/neutral — destination unresolved, see q_pole4_topology and q_ac_loads."
+    }
+  ],
+
+  "known_issues": [
+    {
+      "id": "renogy_rover_acr_e1",
+      "summary": "Renogy Rover 40 MPPT controller stuck in ACr + E1 fault state",
+      "symptoms": [
+        "Controller display shows 'ACr' indicator together with error code 'E1'.",
+        "Charging does not proceed even with measured PV voltage on the panels.",
+        "Fault persists across power cycles (disconnect/reconnect of PV and BAT)."
+      ],
+      "diagnostic_findings": [
+        "Battery resting voltage measured at the battery terminals reads within the LiFePO4 24V nominal range (i.e. not actually over-voltage).",
+        "BAT+ and BAT- polarity at the controller terminal block visually matches the controller's labelling.",
+        "PV input present at controller PV+/PV- when sun is on the panels."
+      ],
+      "leading_hypothesis": {
+        "description": "Hardware fault inside the controller's battery voltage-sense circuit, causing it to misread battery voltage as out-of-range and latch the E1 / ACr fault.",
+        "reasoning": "External readings at the battery terminals are within spec, the wiring matches labels, and the fault persists across resets — pointing at the controller itself rather than the surrounding wiring."
+      },
+      "alternative_hypotheses": [
+        {
+          "description": "High-resistance / loose connection on the BAT- leg between controller and battery introducing a voltage offset the controller interprets as over-voltage.",
+          "reasoning": "The BAT- wire (controller_bat_neg_to_battery) is currently unverified; a poor crimp or loose terminal could create enough drop under load to skew the controller's sense reading."
+        },
+        {
+          "description": "Pole 1 of the breaker has a degraded contact on the BAT+ leg adding series resistance.",
+          "reasoning": "The breaker is in series on BAT+ (controller → pole 1 → battery+); a worn breaker can develop contact resistance over time."
+        },
+        {
+          "description": "Battery BMS briefly went into over-voltage protection during a previous charge and the controller latched the fault.",
+          "reasoning": "Some Renogy firmware will hold E1 until manually cleared even after the over-voltage condition has cleared."
+        }
+      ],
+      "suspected_components": ["controller", "battery", "circuit_breaker"],
+      "suspected_connections": [
+        "controller_bat_pos_to_breaker",
+        "breaker_to_battery_pos",
+        "controller_bat_neg_to_battery"
+      ],
+      "next_steps_recommended": [
+        "Measure voltage between controller BAT+ and BAT- terminals directly (not at the battery) while fault is active — compare to battery terminal voltage. A difference > ~0.3V suggests wiring resistance.",
+        "Inspect and re-torque the BAT+ and BAT- terminals at controller, breaker pole 1, and battery posts.",
+        "Bypass pole 1 of the breaker temporarily (BAT+ direct from controller to battery) to rule the breaker in or out.",
+        "If all wiring checks clean, contact Renogy support — the controller is likely the cause and may need replacement under warranty."
+      ],
+      "notes": "ACr + E1 on the Rover 40 typically indicates a battery-side voltage anomaly. Do not assume the battery is actually over-voltage without confirming with an independent meter at the battery posts."
+    }
+  ],
+
+  "open_questions": [
+    {
+      "id": "q_pole2_polarity",
+      "question": "On pole 2 (PV) top side, which terminal is + and which is -?",
+      "affects": ["pv_panel_pos_to_breaker", "pv_panel_neg_to_breaker"]
+    },
+    {
+      "id": "q_pole4_topology",
+      "question": "Pole 4 (AC) has 'Black+Brown' and 'Green/Yellow+Gray' on top, '2x Brown' and '2x White+Blue' on bottom. Is shore-power source-switched here, or are shore and inverter outputs paralleled into the AC bus? Where is the actual transfer switch / changeover?",
+      "affects": ["shore_l_to_breaker", "shore_n_pe_to_breaker", "inverter_ac_to_breaker"]
+    },
+    {
+      "id": "q_ac_loads",
+      "question": "Where do the AC loads (sockets, lights, etc.) connect? Probably from pole 4 bottom but not shown in current diagram.",
+      "affects": []
+    },
+    {
+      "id": "q_controller_load",
+      "question": "Why are the controller LOAD+/LOAD- terminals unwired? Is this intentional (loads pulled directly from battery via inverter only) or a planned future addition?",
+      "affects": []
+    }
+  ]
+}
