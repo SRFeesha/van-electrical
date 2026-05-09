@@ -38,6 +38,20 @@ export default function App() {
   const [diagMode, setDiagMode] = useState(false)
 
   useEffect(() => {
+    // Prefer the schema inlined into index.html by the Vite build plugin —
+    // saves a round-trip and means the page works without a second request.
+    // Fall back to fetching /schema.json when running in dev (the inlined
+    // data may be the placeholder string before HMR catches up) or if the
+    // tag has been removed.
+    const inline = document.getElementById('van-schema-data')?.textContent?.trim()
+    if (inline && inline !== '__SCHEMA_INLINE__') {
+      try {
+        setSchema(JSON.parse(inline))
+        return
+      } catch {
+        // fall through to network fetch
+      }
+    }
     fetch('./schema.json')
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
