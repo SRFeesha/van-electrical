@@ -7,7 +7,7 @@
   "description": "Machine-readable schema of a campervan electrical system. Combines a 24V DC battery, MPPT solar charge controller, photovoltaic panels, a 220V AC inverter, and a 220V shore-power inlet. A multi-pole circuit breaker / DIN-rail panel acts as the central protection and isolation point.",
   "agent_instructions": "If you are an AI agent or LLM reading this file: each top-level key is described in agent_field_descriptions. Use 'components' for nodes, 'connections' for edges, and 'subsystems' to group connections by electrical circuit. Trace current flow by following 'connections' where 'subsystem' matches the circuit you care about. 'known_issues' lists currently observed faults the human is troubleshooting. 'open_questions' lists topology details the human is uncertain about — do not assume them resolved.",
   "agent_field_descriptions": {
-    "components": "Physical devices in the system (battery, controller, breaker, inverter, panels, shore inlet). Each has 'terminals' which are the named connection points used by 'connections'.",
+    "components": "Physical devices in the system (battery, controller, protection panel, inverter, panels, shore inlet). Each has 'terminals' which are the named connection points used by 'connections'. Components with a 'poles' array (e.g. circuit_breaker) describe each pole's protection device with 'kind': 'fuse' (a sacrificial DC fuse) or 'breaker' (a switchable circuit breaker).",
     "connections": "Directed wires between component terminals. 'from' and 'to' reference component IDs and terminal names. 'subsystem' classifies the wire's electrical circuit. 'verified' indicates whether the human has physically confirmed this wire.",
     "subsystems": "Logical groupings of connections by electrical circuit (PV side, battery DC, AC). Useful for filtering and reasoning about current flow.",
     "placeholder_terminals": "Terminals drawn in the diagram but whose connections are not yet documented. Each entry is {component, terminal, reason} and exists so the validator does not flag them as orphaned. Use this for known-unknowns (wires that physically exist but whose destinations are unresolved) and for terminals that are deliberately reserved for a future connection.",
@@ -44,13 +44,14 @@
 
     "circuit_breaker": {
       "id": "circuit_breaker",
-      "label": "Circuit Breaker Panel",
-      "type": "din_rail_breaker_panel",
-      "description": "Central DIN-rail panel with 4 poles. Acts as both DC isolation (poles 1, 2) and AC protection (pole 4). Pole 3 is currently unused.",
+      "label": "DIN-rail protection panel",
+      "type": "din_rail_protection_panel",
+      "description": "Central DIN-rail panel with 4 modules: three DC fuse holders (poles 1-3) and one AC circuit breaker (pole 4). Despite the historical 'circuit_breaker' id, only pole 4 is a true switchable breaker — poles 1-3 are fuses.",
       "poles": [
         {
           "id": "pole_1",
-          "function": "Battery DC isolation",
+          "kind": "fuse",
+          "function": "Battery DC fuse (BAT+ leg between controller and battery)",
           "terminals": [
             { "id": "p1_top_l", "label": "BatLith+", "side": "top", "kind": "dc", "polarity": "+" },
             { "id": "p1_top_r", "label": "N/A", "side": "top", "kind": "unused" },
@@ -60,7 +61,8 @@
         },
         {
           "id": "pole_2",
-          "function": "PV (solar) isolation",
+          "kind": "fuse",
+          "function": "PV (solar) DC fuse — between panels and controller PV inputs",
           "terminals": [
             { "id": "p2_top_l", "label": "PV (?)", "side": "top", "kind": "dc", "polarity": "+", "verified": false },
             { "id": "p2_top_r", "label": "PV (?)", "side": "top", "kind": "dc", "polarity": "-", "verified": false },
@@ -70,7 +72,8 @@
         },
         {
           "id": "pole_3",
-          "function": "Reserved for controller LOAD output (currently UNUSED)",
+          "kind": "fuse",
+          "function": "DC fuse reserved for controller LOAD output (currently UNUSED — see fridge_circuit_unconnected)",
           "terminals": [
             { "id": "p3_top_l", "label": "LOAD+", "side": "top", "kind": "dc", "polarity": "+" },
             { "id": "p3_top_r", "label": "LOAD-", "side": "top", "kind": "dc", "polarity": "-" },
@@ -80,7 +83,8 @@
         },
         {
           "id": "pole_4",
-          "function": "AC protection (shore + inverter output)",
+          "kind": "breaker",
+          "function": "AC circuit breaker — shore inlet + inverter output share this pole; transfer/changeover topology unverified (see q_pole4_topology)",
           "terminals": [
             { "id": "p4_top_l", "label": "Black + Brown", "side": "top", "kind": "ac", "wire_colors": ["black", "brown"] },
             { "id": "p4_top_r", "label": "Green/Yellow + Gray", "side": "top", "kind": "ac", "wire_colors": ["green/yellow", "gray"] },
@@ -297,48 +301,84 @@
   "known_issues": [
     {
       "id": "renogy_rover_acr_e1",
-      "summary": "Renogy Rover 40 MPPT controller stuck in ACr + E1 fault state",
+      "summary": "Renogy Rover 40 MPPT controller stuck in ACr + E1 (battery under-voltage) — controller's voltage sense is reading wrong",
       "symptoms": [
         "Controller display shows 'ACr' indicator together with error code 'E1'.",
         "Charging does not proceed even with measured PV voltage on the panels.",
         "Fault persists across power cycles (disconnect/reconnect of PV and BAT)."
       ],
       "diagnostic_findings": [
-        "Battery resting voltage measured at the battery terminals reads within the LiFePO4 24V nominal range (i.e. not actually over-voltage).",
+        "Multimeter at the battery terminals reads ~29 V — a healthy fully-charged voltage for the 24 V (8S) LiFePO4 pack.",
+        "Renogy controller display reads ~11 V on the same battery at the same moment — i.e. roughly 18 V below reality.",
+        "The discrepancy between meter and display is the central evidence: the battery is fine; the controller's internal voltage measurement is wrong.",
         "BAT+ and BAT- polarity at the controller terminal block visually matches the controller's labelling.",
-        "PV input present at controller PV+/PV- when sun is on the panels."
+        "PV input present at controller PV+/PV- when sun is on the panels.",
+        "E1 on the Rover 40 is the battery UNDER-voltage / over-discharge protection code — consistent with the controller's ~11 V reading, even though the actual pack is at ~29 V."
       ],
       "leading_hypothesis": {
-        "description": "Hardware fault inside the controller's battery voltage-sense circuit, causing it to misread battery voltage as out-of-range and latch the E1 / ACr fault.",
-        "reasoning": "External readings at the battery terminals are within spec, the wiring matches labels, and the fault persists across resets — pointing at the controller itself rather than the surrounding wiring."
+        "confidence": "high",
+        "description": "Hardware failure of the controller's internal battery voltage-sense circuit (or its calibration). The controller is reporting ~11 V while the actual battery is at ~29 V, so it locks itself into E1 (under-voltage) and refuses to charge.",
+        "reasoning": "This is the only hypothesis that explains all of the evidence at once: the battery measures correct on a calibrated meter (29 V), polarity and wiring at the controller match labels, the fault survives full power cycles, and the displayed voltage is wildly wrong (~11 V) in a way that no plausible amount of wiring resistance could produce. An 18 V discrepancy with no current flowing rules out IR drop on the BAT leads. The controller itself is mis-reading."
       },
       "alternative_hypotheses": [
         {
-          "description": "High-resistance / loose connection on the BAT- leg between controller and battery introducing a voltage offset the controller interprets as over-voltage.",
-          "reasoning": "The BAT- wire (controller_bat_neg_to_battery) is currently unverified; a poor crimp or loose terminal could create enough drop under load to skew the controller's sense reading."
+          "description": "Severely high-resistance / open connection on the BAT- sense leg between controller and battery, causing the controller to read a near-open-circuit voltage instead of the battery.",
+          "reasoning": "The controller_bat_neg_to_battery wire is unverified. If BAT- were nearly open at the controller end, the sense input could float and read an arbitrary low value. Worth ruling out by measuring continuity and voltage between the controller's BAT- terminal and the battery negative post directly.",
+          "ruled_out": false
         },
         {
-          "description": "Pole 1 of the breaker has a degraded contact on the BAT+ leg adding series resistance.",
-          "reasoning": "The breaker is in series on BAT+ (controller → pole 1 → battery+); a worn breaker can develop contact resistance over time."
-        },
-        {
-          "description": "Battery BMS briefly went into over-voltage protection during a previous charge and the controller latched the fault.",
-          "reasoning": "Some Renogy firmware will hold E1 until manually cleared even after the over-voltage condition has cleared."
+          "description": "Fuse pole 1 has degraded to the point that BAT+ is intermittently open at the controller side, and the controller is reading something other than the battery.",
+          "reasoning": "Less likely than a broken sense circuit, because under-voltage at 11 V (not 0 V) is closer to a calibration/sensing failure than an open. Easy to test by bypassing pole 1 temporarily.",
+          "ruled_out": false
         }
       ],
-      "suspected_components": ["controller", "battery", "circuit_breaker"],
+      "suspected_components": ["controller", "circuit_breaker"],
       "suspected_connections": [
         "controller_bat_pos_to_breaker",
         "breaker_to_battery_pos",
         "controller_bat_neg_to_battery"
       ],
       "next_steps_recommended": [
-        "Measure voltage between controller BAT+ and BAT- terminals directly (not at the battery) while fault is active — compare to battery terminal voltage. A difference > ~0.3V suggests wiring resistance.",
-        "Inspect and re-torque the BAT+ and BAT- terminals at controller, breaker pole 1, and battery posts.",
-        "Bypass pole 1 of the breaker temporarily (BAT+ direct from controller to battery) to rule the breaker in or out.",
-        "If all wiring checks clean, contact Renogy support — the controller is likely the cause and may need replacement under warranty."
+        "Measure DC voltage directly between the controller's BAT+ and BAT- terminal screws (probes on the screws, not on the wire ends) — compare to the meter reading at the battery posts. A near-equal reading (~29 V) at the screws while the display still shows ~11 V is conclusive proof of an internal sensing fault.",
+        "If voltage at the controller's terminal screws matches the battery (~29 V), the wiring is fine — proceed straight to a warranty/replacement claim with Renogy. Capture a photo or short video of meter-vs-display showing the discrepancy.",
+        "If voltage at the controller's screws is significantly lower than at the battery, inspect and re-torque BAT+ at fuse pole 1 and BAT- at the controller / battery posts; bypass pole 1 temporarily to rule the fuse holder in or out.",
+        "Until resolved, do not rely on the controller for charging; the battery should not be connected to the controller's BAT terminals while the fault is active because the controller's behaviour is unpredictable."
       ],
-      "notes": "ACr + E1 on the Rover 40 typically indicates a battery-side voltage anomaly. Do not assume the battery is actually over-voltage without confirming with an independent meter at the battery posts."
+      "notes": "ACr + E1 on the Rover 40 = battery under-voltage / over-discharge protection. With a measured 29 V at the battery terminals, the controller's claim of 11 V is a sensing failure, not a real battery condition. Do not assume the battery is in trouble."
+    },
+    {
+      "id": "fridge_circuit_unconnected",
+      "summary": "Fridge cables are present in the panel but not landed — one set on the controller's LOAD output, one set on AC breaker pole 4",
+      "symptoms": [
+        "Fridge has no power.",
+        "Loose cable ends visible inside the panel: one pair near the controller's LOAD+/LOAD- terminals, one pair near AC breaker pole 4 bottom.",
+        "It is unclear from the existing wiring whether the fridge was originally intended to run on DC (off the controller's LOAD output) or on AC (off pole 4 of the breaker)."
+      ],
+      "diagnostic_findings": [
+        "controller.ctrl_load_pos and ctrl_load_neg are visibly unconnected at the controller (matches the schema's connected:false flag).",
+        "circuit_breaker pole 4 bottom-right (p4_bot_r, '2x White + Blue') has at least one un-terminated white conductor; see placeholder_terminals."
+      ],
+      "leading_hypothesis": {
+        "confidence": "medium",
+        "description": "The fridge was wired during the build but never landed because the install was paused or rerouted — leaving two candidate feeds (DC via controller LOAD, AC via pole 4) and no decision committed.",
+        "reasoning": "The presence of dangling pairs at both candidate sources suggests indecision rather than a failure mode. There is no evidence of a blown fuse, melted insulation, or burnt terminal."
+      },
+      "alternative_hypotheses": [
+        {
+          "description": "The fridge was once wired and then deliberately disconnected (e.g. controller LOAD output is unsafe to run a fridge from given the active renogy_rover_acr_e1 fault).",
+          "reasoning": "Plausible if the fridge is a 12/24 V DC unit and the LOAD output was the original feed."
+        }
+      ],
+      "suspected_components": ["controller", "circuit_breaker"],
+      "suspected_connections": [],
+      "next_steps_recommended": [
+        "Identify the fridge model and confirm whether it is DC (12/24 V) or AC (220 V).",
+        "If DC: do NOT land it on the controller's LOAD output until renogy_rover_acr_e1 is resolved — the LOAD output is governed by the same faulty voltage sense and may switch off or refuse to power on.",
+        "If AC: trace the dangling cable at pole 4 bottom-right (p4_bot_r) back to the fridge's plug/junction box, terminate it on the correct AC bus side, and resolve q_pole4_topology before energising.",
+        "Until terminated, cap exposed conductor ends — DC at the controller side and AC at the breaker — to prevent shorts inside the panel.",
+        "Add the eventual connections to schema.json once landed (and remove their placeholder_terminals entries)."
+      ],
+      "notes": "This is a wiring/installation issue, not a fault of any component. Logged as a known issue so it isn't forgotten and so anyone re-energising the system is aware of loose conductors inside the panel."
     }
   ],
 
