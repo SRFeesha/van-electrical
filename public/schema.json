@@ -39,8 +39,7 @@
       "model": null,
       "description": "Two 220V AC sockets (Light 1 and Light 2) in the campervan. Each socket is a complete circuit fed by its own cable from pole 4 bottom. The same connectors double as a shore-power inlet when plugged into campsite mains.",
       "terminals": [
-        { "id": "light_1", "label": "Light 1", "kind": "ac", "wire_color_observed": "2x brown" },
-        { "id": "light_2", "label": "Light 2", "kind": "ac", "wire_color_observed": "2x white + blue" }
+        { "id": "light", "label": "Light", "kind": "ac", "wire_color_observed": "2x brown + 2x white + blue" }
       ],
       "voltage_nominal": "220V AC",
       "position_hint": "top-right"
@@ -260,22 +259,13 @@
       "description": "SSI 104 220V AC output feeds the TOP of pole 4. Cable splits into four conductors: black + brown on p4_top_l, green/yellow + gray on p4_top_r. The `to` terminal is recorded as p4_top_l for graph purposes; the second pair lands on p4_top_r (see placeholder_terminals)."
     },
     {
-      "id": "breaker_to_shore_l",
+      "id": "breaker_to_shore",
       "subsystem": "ac",
       "from": { "component": "circuit_breaker", "terminal": "p4_bot_l" },
-      "to": { "component": "shore", "terminal": "light_1" },
+      "to": { "component": "shore", "terminal": "light" },
       "color": "orange",
-      "verified": false,
-      "description": "Pole 4 bottom-left (2x brown) to Light 1 — 220V socket fed by the inverter output."
-    },
-    {
-      "id": "breaker_to_shore_n_pe",
-      "subsystem": "ac",
-      "from": { "component": "circuit_breaker", "terminal": "p4_bot_r" },
-      "to": { "component": "shore", "terminal": "light_2" },
-      "color": "orange",
-      "verified": false,
-      "description": "Pole 4 bottom-right (2x white + blue) to Light 2 — 220V socket fed by the inverter output."
+      "verified": true,
+      "description": "Both bottom cables of pole 4 (p4_bot_l: 2x brown; p4_bot_r: 2x white + blue) bundle together and feed the van's 220V socket. Modelled as a single edge from p4_bot_l; p4_bot_r carries the neutral/PE of the same circuit (see placeholder_terminals)."
     }
   ],
 
@@ -316,6 +306,11 @@
       "component": "circuit_breaker",
       "terminal": "p3_top_r",
       "reason": "Reserved for controller LOAD- output. Pole 3 is currently unwired."
+    },
+    {
+      "component": "circuit_breaker",
+      "terminal": "p4_bot_r",
+      "reason": "Pole 4 bottom-right ('2x White + Blue') carries the neutral + PE of the same cable bundle that feeds the shore socket. The connection edge is recorded as p4_bot_l → shore; this terminal is the N+PE half of the same physical bundle."
     },
     {
       "component": "circuit_breaker",

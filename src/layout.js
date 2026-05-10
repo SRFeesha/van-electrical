@@ -36,8 +36,7 @@ export const terminals = {
   pv_out_neg: { x: 580, y: 170, label: 'PV-' },
 
   // Shore
-  light_1: { x: 870, y: 170, label: 'Light 1' },
-  light_2: { x: 950, y: 170, label: 'Light 2' },
+  light: { x: 910, y: 170, label: 'Light' },
 
   // Breaker pole 1 (BAT)
   p1_top_l: { x: pole(0) + 35, y: 290, label: 'BatLith+' },
@@ -113,10 +112,9 @@ export const wirePaths = {
   // AC: SSI 104 AC out → pole 4 TOP (p4_top_l, y=290).
   // Route drops below all components (y=795), runs straight across to pole 4, rises to top terminal.
   inverter_ac_to_breaker: `M ${terminals.inv_ac_out.x} ${terminals.inv_ac_out.y} L ${terminals.inv_ac_out.x} 795 L ${terminals.p4_top_l.x} 795 L ${terminals.p4_top_l.x} ${terminals.p4_top_l.y}`,
-  // AC: pole 4 bottom → van sockets / shore connectors.
+  // AC: pole 4 bottom → van socket (shore). Single bundled edge from p4_bot_l.
   // Route exits the breaker downward, sweeps right around the canvas edge, and rises to the shore box.
-  breaker_to_shore_l: `M ${terminals.p4_bot_l.x} ${terminals.p4_bot_l.y} L ${terminals.p4_bot_l.x} 450 L 1080 450 L 1080 155 L ${terminals.light_1.x} 155 L ${terminals.light_1.x} ${terminals.light_1.y}`,
-  breaker_to_shore_n_pe: `M ${terminals.p4_bot_r.x} ${terminals.p4_bot_r.y} L ${terminals.p4_bot_r.x} 460 L 1090 460 L 1090 145 L ${terminals.light_2.x} 145 L ${terminals.light_2.x} ${terminals.light_2.y}`,
+  breaker_to_shore: `M ${terminals.p4_bot_l.x} ${terminals.p4_bot_l.y} L ${terminals.p4_bot_l.x} 450 L 1080 450 L 1080 150 L ${terminals.light.x} 150 L ${terminals.light.x} ${terminals.light.y}`,
 }
 
 export const subsystemColors = {
