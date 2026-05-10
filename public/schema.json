@@ -38,10 +38,10 @@
       "label": "220V AC Sockets / Shore Inlet",
       "type": "ac_socket_shore",
       "model": null,
-      "description": "Two 220V AC sockets in the campervan. Normally fed by the SSI 104 inverter via pole 4. The same connectors double as a shore-power inlet when plugged into campsite mains (at which point current flows in reverse through pole 4 into the inverter for battery charging). Wire colours observed: brown/white/black on the L side, blue on the N+PE side.",
+      "description": "Two 220V AC sockets (Light 1 and Light 2) in the campervan. Each socket is a complete circuit fed by its own cable from pole 4 bottom. The same connectors double as a shore-power inlet when plugged into campsite mains.",
       "terminals": [
-        { "id": "shore_l", "label": "L (socket line / shore L)", "kind": "ac", "wire_color_observed": "brown + white + black" },
-        { "id": "shore_n_pe", "label": "N + PE (socket neutral / shore N+PE)", "kind": "ac", "wire_color_observed": "blue" }
+        { "id": "light_1", "label": "Light 1", "kind": "ac", "wire_color_observed": "2x brown" },
+        { "id": "light_2", "label": "Light 2", "kind": "ac", "wire_color_observed": "2x white + blue" }
       ],
       "voltage_nominal": "220V AC",
       "position_hint": "top-right"
@@ -264,19 +264,19 @@
       "id": "breaker_to_shore_l",
       "subsystem": "ac",
       "from": { "component": "circuit_breaker", "terminal": "p4_bot_l" },
-      "to": { "component": "shore", "terminal": "shore_l" },
+      "to": { "component": "shore", "terminal": "light_1" },
       "color": "orange",
       "verified": false,
-      "description": "Pole 4 bottom-left (2x brown — brown, white, black) to the van's 220V socket/shore-L. When the inverter is running, this is the AC output to the sockets. When plugged into campsite mains, current flows the reverse direction into the inverter for battery charging."
+      "description": "Pole 4 bottom-left (2x brown) to Light 1 — 220V socket fed by the inverter output."
     },
     {
       "id": "breaker_to_shore_n_pe",
       "subsystem": "ac",
       "from": { "component": "circuit_breaker", "terminal": "p4_bot_r" },
-      "to": { "component": "shore", "terminal": "shore_n_pe" },
+      "to": { "component": "shore", "terminal": "light_2" },
       "color": "orange",
       "verified": false,
-      "description": "Pole 4 bottom-right (blue) to the van's 220V socket/shore N+PE."
+      "description": "Pole 4 bottom-right (2x white + blue) to Light 2 — 220V socket fed by the inverter output."
     }
   ],
 
