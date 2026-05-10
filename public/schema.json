@@ -64,8 +64,8 @@
           "kind": "fuse",
           "function": "PV (solar) DC fuse — between panels and controller PV inputs",
           "terminals": [
-            { "id": "p2_top_l", "label": "PV (?)", "side": "top", "kind": "dc", "polarity": "+", "verified": false },
-            { "id": "p2_top_r", "label": "PV (?)", "side": "top", "kind": "dc", "polarity": "-", "verified": false },
+            { "id": "p2_top_l", "label": "PV+", "side": "top", "kind": "dc", "polarity": "+" },
+            { "id": "p2_top_r", "label": "PV-", "side": "top", "kind": "dc", "polarity": "-" },
             { "id": "p2_bot_l", "label": "PV+", "side": "bottom", "kind": "dc", "polarity": "+" },
             { "id": "p2_bot_r", "label": "PV-", "side": "bottom", "kind": "dc", "polarity": "-" }
           ]
@@ -147,8 +147,8 @@
       "from": { "component": "photovoltaic", "terminal": "pv_out_pos" },
       "to": { "component": "circuit_breaker", "terminal": "p2_top_l" },
       "color": "purple",
-      "verified": false,
-      "description": "PV+ from solar panels into pole 2 (top-left). Top labels show 'Photovoltaic (?)' — polarity assignment on top of pole 2 not visually verified."
+      "verified": true,
+      "description": "PV+ from solar panels into pole 2 top-left (PV+ side). Polarity confirmed by user: panel PV+ lands on the same side as the bottom-left PV+ output."
     },
     {
       "id": "pv_panel_neg_to_breaker",
@@ -156,8 +156,8 @@
       "from": { "component": "photovoltaic", "terminal": "pv_out_neg" },
       "to": { "component": "circuit_breaker", "terminal": "p2_top_r" },
       "color": "purple",
-      "verified": false,
-      "description": "PV- from solar panels into pole 2 (top-right). Polarity assignment not visually verified."
+      "verified": true,
+      "description": "PV- from solar panels into pole 2 top-right (PV- side). Polarity confirmed by user."
     },
     {
       "id": "breaker_to_controller_pv_pos",
@@ -202,8 +202,8 @@
       "from": { "component": "controller", "terminal": "ctrl_bat_neg" },
       "to": { "component": "battery", "terminal": "bat_neg" },
       "color": "green",
-      "verified": false,
-      "description": "Controller BAT- to Battery- (no breaker on negative leg). Routing visible in diagram but path not physically traced."
+      "verified": true,
+      "description": "Controller BAT- to Battery- (no breaker on negative leg). Confirmed by user."
     },
     {
       "id": "battery_pos_to_inverter",
@@ -228,28 +228,28 @@
       "id": "shore_l_to_breaker",
       "subsystem": "ac",
       "from": { "component": "shore", "terminal": "shore_l" },
-      "to": { "component": "circuit_breaker", "terminal": "p4_top_l" },
+      "to": { "component": "circuit_breaker", "terminal": "p4_bot_l" },
       "color": "orange",
       "verified": false,
-      "description": "Shore L (brown) into pole 4 top-left (mixed black + brown bundle)."
+      "description": "Shore L (brown) into pole 4 bottom-left (one of the two brown conductors at p4_bot_l). The other brown at p4_bot_l goes to AC loads (sockets in the van)."
     },
     {
       "id": "shore_n_pe_to_breaker",
       "subsystem": "ac",
       "from": { "component": "shore", "terminal": "shore_n_pe" },
-      "to": { "component": "circuit_breaker", "terminal": "p4_top_r" },
+      "to": { "component": "circuit_breaker", "terminal": "p4_bot_r" },
       "color": "orange",
       "verified": false,
-      "description": "Shore N + PE (blue + green/yellow) into pole 4 top-right."
+      "description": "Shore N (+ PE) into pole 4 bottom-right (one of the white conductors + the blue at p4_bot_r). Remaining white conductor at p4_bot_r goes to AC loads neutral."
     },
     {
       "id": "inverter_ac_to_breaker",
       "subsystem": "ac",
       "from": { "component": "inverter", "terminal": "inv_ac_out" },
-      "to": { "component": "circuit_breaker", "terminal": "p4_bot_l" },
+      "to": { "component": "circuit_breaker", "terminal": "p4_top_l" },
       "color": "orange",
-      "verified": false,
-      "description": "Inverter 220V AC output joins the AC bus at pole 4 bottom-left. Note: AC topology of pole 4 is partially uncertain — see open_questions."
+      "verified": true,
+      "description": "Inverter 220V AC output cable reaches pole 4 and splits into the four conductors landing on the TOP of pole 4: black + brown on p4_top_l, green/yellow + gray on p4_top_r. The connection's `to` terminal is recorded as p4_top_l for graph purposes; the full split is described in q_pole4_topology."
     }
   ],
 
@@ -294,7 +294,12 @@
     {
       "component": "circuit_breaker",
       "terminal": "p4_bot_r",
-      "reason": "Pole 4 bottom-right ('2x White + Blue') has physical wires going to AC loads/neutral — destination unresolved, see q_pole4_topology and q_ac_loads."
+      "reason": "Pole 4 bottom-right ('2x White + Blue') carries shore N + PE plus an AC-loads neutral — the loads-side conductor is not modelled as a destination yet, see q_ac_loads."
+    },
+    {
+      "component": "circuit_breaker",
+      "terminal": "p4_top_r",
+      "reason": "Pole 4 top-right ('Green/Yellow + Gray') is the other half of the inverter output split that lands on p4_top_l. The connection edge is recorded as inverter → p4_top_l; this terminal is the same physical inverter cable's second pair."
     }
   ],
 
@@ -323,7 +328,7 @@
       "alternative_hypotheses": [
         {
           "description": "Severely high-resistance / open connection on the BAT- sense leg between controller and battery, causing the controller to read a near-open-circuit voltage instead of the battery.",
-          "reasoning": "The controller_bat_neg_to_battery wire is unverified. If BAT- were nearly open at the controller end, the sense input could float and read an arbitrary low value. Worth ruling out by measuring continuity and voltage between the controller's BAT- terminal and the battery negative post directly.",
+          "reasoning": "The controller_bat_neg_to_battery wire is now confirmed to exist end-to-end, but 'wire exists' isn't the same as 'low resistance under load'. Still worth ruling out with a continuity / voltage-drop check between the controller's BAT- terminal and the battery negative post before declaring the controller dead.",
           "ruled_out": false
         },
         {
@@ -384,13 +389,8 @@
 
   "open_questions": [
     {
-      "id": "q_pole2_polarity",
-      "question": "On pole 2 (PV) top side, which terminal is + and which is -?",
-      "affects": ["pv_panel_pos_to_breaker", "pv_panel_neg_to_breaker"]
-    },
-    {
       "id": "q_pole4_topology",
-      "question": "Pole 4 (AC) has 'Black+Brown' and 'Green/Yellow+Gray' on top, '2x Brown' and '2x White+Blue' on bottom. Is shore-power source-switched here, or are shore and inverter outputs paralleled into the AC bus? Where is the actual transfer switch / changeover?",
+      "question": "Pole 4 direction is now known (per user): inverter output feeds the TOP (split into 4 conductors — black + brown on top-left, green/yellow + gray on top-right); shore inlet and AC loads share the BOTTOM (2x brown at p4_bot_l = shore L + load L; 2x white + blue at p4_bot_r = shore N + load N + PE). Remaining unknown: where the changeover/transfer between shore and inverter actually happens — pole 4 alone is a single breaker, so either there is an external transfer switch upstream of the inverter, or the inverter is intended never to run while shore is plugged in.",
       "affects": ["shore_l_to_breaker", "shore_n_pe_to_breaker", "inverter_ac_to_breaker"]
     },
     {
