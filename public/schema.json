@@ -265,7 +265,16 @@
       "to": { "component": "shore", "terminal": "light" },
       "color": "orange",
       "verified": true,
-      "description": "Both bottom cables of pole 4 (p4_bot_l: 2x brown; p4_bot_r: 2x white + blue) bundle together and feed the van's 220V socket. Modelled as a single edge from p4_bot_l; p4_bot_r carries the neutral/PE of the same circuit (see placeholder_terminals)."
+      "description": "Pole 4 bottom-left (2x brown) runs to the van's 220V sockets. One of two cables exiting pole 4 bottom; the other is breaker_to_shore_r."
+    },
+    {
+      "id": "breaker_to_shore_r",
+      "subsystem": "ac",
+      "from": { "component": "circuit_breaker", "terminal": "p4_bot_r" },
+      "to": { "component": "shore", "terminal": "light" },
+      "color": "orange",
+      "verified": true,
+      "description": "Pole 4 bottom-right (2x white + blue) runs to the van's 220V sockets — the neutral + PE half of the same cable bundle as breaker_to_shore."
     }
   ],
 
@@ -306,11 +315,6 @@
       "component": "circuit_breaker",
       "terminal": "p3_top_r",
       "reason": "Reserved for controller LOAD- output. Pole 3 is currently unwired."
-    },
-    {
-      "component": "circuit_breaker",
-      "terminal": "p4_bot_r",
-      "reason": "Pole 4 bottom-right ('2x White + Blue') carries the neutral + PE of the same cable bundle that feeds the shore socket. The connection edge is recorded as p4_bot_l → shore; this terminal is the N+PE half of the same physical bundle."
     },
     {
       "component": "circuit_breaker",

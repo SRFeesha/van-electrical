@@ -112,9 +112,10 @@ export const wirePaths = {
   // AC: SSI 104 AC out → pole 4 TOP (p4_top_l, y=290).
   // Route drops below all components (y=795), runs straight across to pole 4, rises to top terminal.
   inverter_ac_to_breaker: `M ${terminals.inv_ac_out.x} ${terminals.inv_ac_out.y} L ${terminals.inv_ac_out.x} 795 L ${terminals.p4_top_l.x} 795 L ${terminals.p4_top_l.x} ${terminals.p4_top_l.y}`,
-  // AC: pole 4 bottom → van socket (shore). Single bundled edge from p4_bot_l.
-  // Route exits the breaker downward, sweeps right around the canvas edge, and rises to the shore box.
+  // AC: pole 4 bottom-left (2x brown) → van socket. Exits downward, sweeps right around canvas edge, rises to shore box.
   breaker_to_shore: `M ${terminals.p4_bot_l.x} ${terminals.p4_bot_l.y} L ${terminals.p4_bot_l.x} 450 L 1080 450 L 1080 150 L ${terminals.light.x} 150 L ${terminals.light.x} ${terminals.light.y}`,
+  // AC: pole 4 bottom-right (2x white + blue) drops to y=450 and merges into the breaker_to_shore corridor.
+  breaker_to_shore_r: `M ${terminals.p4_bot_r.x} ${terminals.p4_bot_r.y} L ${terminals.p4_bot_r.x} 450 L ${terminals.p4_bot_l.x} 450`,
 }
 
 export const subsystemColors = {
