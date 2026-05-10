@@ -78,6 +78,7 @@ export const terminals = {
   // Inverter
   inv_dc_pos: { x: 240, y: 660, label: '+' },
   inv_dc_neg: { x: 170, y: 660, label: '-' },
+  inv_ac_shore_in: { x: 310, y: 740, label: 'Shore in' },
   inv_ac_out: { x: 200, y: 740, label: '220V' },
 }
 
@@ -110,9 +111,9 @@ export const wirePaths = {
   battery_pos_to_inverter: `M ${terminals.bat_pos.x} ${terminals.bat_pos.y} L ${terminals.bat_pos.x} 695 L ${terminals.inv_dc_pos.x} 695 L ${terminals.inv_dc_pos.x} ${terminals.inv_dc_pos.y}`,
   battery_neg_to_inverter: `M ${terminals.bat_neg.x} ${terminals.bat_neg.y} L ${terminals.bat_neg.x} 705 L ${terminals.inv_dc_neg.x} 705 L ${terminals.inv_dc_neg.x} ${terminals.inv_dc_neg.y}`,
 
-  // AC: shore → pole 4 top — corridor at y=200 / y=210 (above PV's 220/230 band)
-  shore_l_to_breaker: `M ${terminals.shore_l.x} ${terminals.shore_l.y} L ${terminals.shore_l.x} 200 L ${terminals.p4_top_l.x} 200 L ${terminals.p4_top_l.x} ${terminals.p4_top_l.y}`,
-  shore_n_pe_to_breaker: `M ${terminals.shore_n_pe.x} ${terminals.shore_n_pe.y} L ${terminals.shore_n_pe.x} 210 L ${terminals.p4_top_r.x} 210 L ${terminals.p4_top_r.x} ${terminals.p4_top_r.y}`,
+  // AC: shore → SSI 104 AC input — y=200/210 corridors run all the way left to the inverter
+  shore_l_to_inverter: `M ${terminals.shore_l.x} ${terminals.shore_l.y} L ${terminals.shore_l.x} 200 L ${terminals.inv_ac_shore_in.x} 200 L ${terminals.inv_ac_shore_in.x} ${terminals.inv_ac_shore_in.y}`,
+  shore_n_pe_to_inverter: `M ${terminals.shore_n_pe.x} ${terminals.shore_n_pe.y} L ${terminals.shore_n_pe.x} 210 L ${terminals.inv_ac_shore_in.x} 210 L ${terminals.inv_ac_shore_in.x} ${terminals.inv_ac_shore_in.y}`,
   // AC: inverter 220V out → pole 4 bottom-left.
   // Old route went around the right edge of the canvas (x=1010) and clipped through
   // pole 4. New route drops below all components (y=795 — below inverter at 780 and
