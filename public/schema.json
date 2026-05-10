@@ -4,6 +4,7 @@
   "updated": "2026-05-10",
   "vehicle": "campervan",
   "title": "Van Electrical System Schema",
+  "repository": "https://github.com/SRFeesha/van-electrical",
   "description": "Machine-readable schema of a campervan electrical system. Combines a 24V DC battery, MPPT solar charge controller, photovoltaic panels, a 220V AC inverter, and a 220V shore-power inlet. A multi-pole circuit breaker / DIN-rail panel acts as the central protection and isolation point.",
   "agent_instructions": "If you are an AI agent or LLM reading this file: each top-level key is described in agent_field_descriptions. Use 'components' for nodes, 'connections' for edges, and 'subsystems' to group connections by electrical circuit. Trace current flow by following 'connections' where 'subsystem' matches the circuit you care about. 'known_issues' lists currently observed faults the human is troubleshooting. 'open_questions' lists topology details the human is uncertain about — do not assume them resolved.",
   "agent_field_descriptions": {

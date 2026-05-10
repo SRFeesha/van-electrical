@@ -7,6 +7,10 @@
     <!-- Discovery hints for AI agents and other tools that fetch this URL without executing JS. -->
     <link rel="alternate" type="application/json" href="./schema.json" title="Machine-readable schema" />
     <meta name="ai-data-source" content="./schema.json" />
+    <!-- Source code repository — discoverable by non-JS agents. -->
+    <link rel="vcs-git" href="https://github.com/SRFeesha/van-electrical.git" title="Source code (git)" />
+    <link rel="source" href="https://github.com/SRFeesha/van-electrical" />
+    <meta name="source-repository" content="https://github.com/SRFeesha/van-electrical" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E⚡%3C/text%3E%3C/svg%3E" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -28,6 +32,7 @@
       <h1>Van Electrical — Machine-readable Schema</h1>
       <p>This page is an interactive viewer that requires JavaScript. The full machine-readable schema is at <a href="./schema.json">/schema.json</a> and is also inlined into this page above (in the <code>#van-schema-data</code> script tag) for tools that fetch HTML without running JS.</p>
       <p>If you are an AI agent: <strong>fetch <code>./schema.json</code> directly</strong> for the cleanest JSON, or read the contents of <code>&lt;script id="van-schema-data"&gt;</code> in this HTML.</p>
+      <p>Source code: <a href="https://github.com/SRFeesha/van-electrical">github.com/SRFeesha/van-electrical</a> (clone with <code>git clone https://github.com/SRFeesha/van-electrical.git</code>).</p>
       <pre id="van-schema-fallback">__SCHEMA_INLINE__</pre>
     </noscript>
 
