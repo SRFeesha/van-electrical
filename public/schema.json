@@ -6,7 +6,7 @@
   "title": "Van Electrical System Schema",
   "repository": "https://github.com/SRFeesha/van-electrical",
   "description": "Machine-readable schema of a campervan electrical system. Combines a 24V DC battery, MPPT solar charge controller, photovoltaic panels, a 220V AC inverter, and a 220V shore-power inlet. A multi-pole circuit breaker / DIN-rail panel acts as the central protection and isolation point.",
-  "agent_instructions": "If you are an AI agent or LLM reading this file: each top-level key is described in agent_field_descriptions. Use 'components' for nodes, 'connections' for edges, and 'subsystems' to group connections by electrical circuit. Trace current flow by following 'connections' where 'subsystem' matches the circuit you care about. 'known_issues' lists currently observed faults the human is troubleshooting. 'open_questions' lists topology details the human is uncertain about — do not assume them resolved.",
+  "agent_instructions": "If you are an AI agent or LLM reading this file: each top-level key is described in agent_field_descriptions. Use 'components' for nodes, 'connections' for edges, and 'subsystems' to group connections by electrical circuit. Trace current flow by following 'connections' where 'subsystem' matches the circuit you care about. 'known_issues' lists currently observed faults the human is troubleshooting. 'open_questions' lists topology questions; each entry has an optional 'resolved' flag and 'resolution' field. Unresolved entries should not be assumed answered.",
   "agent_field_descriptions": {
     "components": "Physical devices in the system (battery, controller, protection panel, inverter, panels, shore inlet). Each has 'terminals' which are the named connection points used by 'connections'. Components with a 'poles' array (e.g. circuit_breaker) describe each pole's protection device with 'kind': 'fuse' (a sacrificial DC fuse) or 'breaker' (a switchable circuit breaker).",
     "connections": "Directed wires between component terminals. 'from' and 'to' reference component IDs and terminal names. 'subsystem' classifies the wire's electrical circuit. 'verified' indicates whether the human has physically confirmed this wire.",
@@ -23,6 +23,7 @@
       "id": "photovoltaic",
       "label": "Photovoltaic Panels",
       "type": "solar_panel_array",
+      "model": null,
       "description": "Roof-mounted solar panels. Output is unregulated DC and feeds the MPPT controller via the breaker.",
       "terminals": [
         { "id": "pv_out_pos", "label": "PV+", "polarity": "+", "kind": "dc" },
@@ -36,7 +37,8 @@
       "id": "shore",
       "label": "Shore Power Inlet",
       "type": "ac_inlet",
-      "description": "External 220V AC inlet (CEE / Schuko-style). Energizes the AC bus when plugged into mains.",
+      "model": null,
+      "description": "External 220V AC inlet (CEE / Schuko-style). Connects directly to the SSI 104 NVS AC input; the inverter handles source selection internally.",
       "terminals": [
         { "id": "shore_l", "label": "L (line)", "kind": "ac", "wire_color_observed": "brown" },
         { "id": "shore_n_pe", "label": "N + PE", "kind": "ac", "wire_color_observed": "blue + green/yellow" }
@@ -54,6 +56,7 @@
         {
           "id": "pole_1",
           "kind": "fuse",
+          "model": "ABB E91hN/32 (fuse holder, 32A, 400V, 10.3×38mm cylindrical)",
           "function": "Battery DC fuse (BAT+ leg between controller and battery)",
           "terminals": [
             { "id": "p1_top_l", "label": "BatLith+", "side": "top", "kind": "dc", "polarity": "+" },
@@ -65,6 +68,7 @@
         {
           "id": "pole_2",
           "kind": "fuse",
+          "model": "ABB E91hN/32 (fuse holder, 32A, 400V, 10.3×38mm cylindrical)",
           "function": "PV (solar) DC fuse — between panels and controller PV inputs",
           "terminals": [
             { "id": "p2_top_l", "label": "PV+", "side": "top", "kind": "dc", "polarity": "+" },
@@ -76,6 +80,7 @@
         {
           "id": "pole_3",
           "kind": "fuse",
+          "model": "ABB E91hN/32 (fuse holder, 32A, 400V, 10.3×38mm cylindrical)",
           "function": "DC fuse reserved for controller LOAD output (currently UNUSED — see fridge_circuit_unconnected)",
           "terminals": [
             { "id": "p3_top_l", "label": "LOAD+", "side": "top", "kind": "dc", "polarity": "+" },
@@ -87,7 +92,8 @@
         {
           "id": "pole_4",
           "kind": "breaker",
-          "function": "AC circuit breaker — shore inlet + inverter output share this pole; transfer/changeover topology unverified (see q_pole4_topology)",
+          "model": "ABB SN201L C10 (10A AC breaker)",
+          "function": "AC circuit breaker — isolation/protection only. SSI 104 AC output enters the TOP; AC loads exit the BOTTOM. Source transfer is internal to the SSI 104 NVS circuit.",
           "terminals": [
             { "id": "p4_top_l", "label": "Black + Brown", "side": "top", "kind": "ac", "wire_colors": ["black", "brown"] },
             { "id": "p4_top_r", "label": "Green/Yellow + Gray", "side": "top", "kind": "ac", "wire_colors": ["green/yellow", "gray"] },
@@ -103,6 +109,7 @@
       "id": "controller",
       "label": "MPPT Solar Charge Controller",
       "type": "mppt_solar_controller",
+      "model": "Renogy Rover 40 (MPPT)",
       "description": "Solar charge controller. Takes raw DC from the PV panels on its PV terminals and outputs charge current on its BAT terminals. The LOAD terminals are not currently wired.",
       "terminals": [
         { "id": "ctrl_pv_pos", "label": "PV+", "kind": "dc", "polarity": "+" },
@@ -119,6 +126,7 @@
       "id": "battery",
       "label": "24V Lithium Battery",
       "type": "lifepo4_battery",
+      "model": "Renogy RBT24100LFP (24V LiFePO4)",
       "description": "24V LiFePO4 house battery. Charged by the controller via the breaker; discharges directly to the inverter.",
       "terminals": [
         { "id": "bat_pos", "label": "+", "kind": "dc", "polarity": "+" },
@@ -137,12 +145,26 @@
       "terminals": [
         { "id": "inv_dc_pos", "label": "+ (24V DC in)", "kind": "dc", "polarity": "+" },
         { "id": "inv_dc_neg", "label": "- (24V DC in)", "kind": "dc", "polarity": "-" },
-        { "id": "inv_ac_shore_in", "label": "Shore AC in (NVS bypass input)", "kind": "ac" },
+        { "id": "inv_ac_in", "label": "220V AC in (shore / NVS input)", "kind": "ac" },
         { "id": "inv_ac_out", "label": "220V AC out (to pole 4)", "kind": "ac" }
       ],
       "voltage_nominal": "220V AC out",
       "notes": "The SSI 104's built-in MPPT solar input is not connected — all PV goes to the Renogy Rover 40 controller. Do not wire PV to the SSI 104 solar input without reconfiguring the system.",
       "position_hint": "bottom-left"
+    },
+
+    "ac_loads": {
+      "id": "ac_loads",
+      "label": "AC Loads (sockets / appliances)",
+      "type": "ac_load_bus",
+      "model": null,
+      "description": "220V AC distribution point for van sockets and other AC appliances. Fed from pole 4 bottom (L from p4_bot_l, N+PE from p4_bot_r).",
+      "terminals": [
+        { "id": "loads_l", "label": "L in", "kind": "ac" },
+        { "id": "loads_n_pe", "label": "N + PE in", "kind": "ac" }
+      ],
+      "voltage_nominal": "220V AC",
+      "position_hint": "right-center"
     }
   },
 
@@ -157,7 +179,8 @@
       "pole_4": "ABB SN201L C10 (10A AC breaker)"
     },
     "inverter": "ECTIVE SSI 10 24V (SSI 104)",
-    "shore": null
+    "shore": null,
+    "ac_loads": null
   },
 
   "connections": [
@@ -248,7 +271,7 @@
       "id": "shore_l_to_inverter",
       "subsystem": "ac",
       "from": { "component": "shore", "terminal": "shore_l" },
-      "to": { "component": "inverter", "terminal": "inv_ac_shore_in" },
+      "to": { "component": "inverter", "terminal": "inv_ac_in" },
       "color": "orange",
       "verified": false,
       "description": "Shore L (brown) feeds the SSI 104 shore/NVS AC input directly. The SSI 104 handles source selection internally — shore does not reach pole 4 directly."
@@ -257,7 +280,7 @@
       "id": "shore_n_pe_to_inverter",
       "subsystem": "ac",
       "from": { "component": "shore", "terminal": "shore_n_pe" },
-      "to": { "component": "inverter", "terminal": "inv_ac_shore_in" },
+      "to": { "component": "inverter", "terminal": "inv_ac_in" },
       "color": "orange",
       "verified": false,
       "description": "Shore N + PE feeds the SSI 104 shore/NVS AC input (neutral and protective earth). Modelled on the same inv_ac_shore_in terminal as the line conductor for graph simplicity."
@@ -270,6 +293,24 @@
       "color": "orange",
       "verified": true,
       "description": "SSI 104 AC output (inverter mode or shore pass-through, after internal NVS selection) feeds the TOP of pole 4. Cable splits into four conductors: black + brown on p4_top_l, green/yellow + gray on p4_top_r. The `to` terminal is recorded as p4_top_l for graph purposes; the second pair lands on p4_top_r (see placeholder_terminals)."
+    },
+    {
+      "id": "breaker_to_ac_loads_l",
+      "subsystem": "ac",
+      "from": { "component": "circuit_breaker", "terminal": "p4_bot_l" },
+      "to": { "component": "ac_loads", "terminal": "loads_l" },
+      "color": "orange",
+      "verified": false,
+      "description": "Pole 4 bottom-left (2x brown) to AC loads line (L). One of the two brown conductors feeds van sockets and appliances."
+    },
+    {
+      "id": "breaker_to_ac_loads_n_pe",
+      "subsystem": "ac",
+      "from": { "component": "circuit_breaker", "terminal": "p4_bot_r" },
+      "to": { "component": "ac_loads", "terminal": "loads_n_pe" },
+      "color": "orange",
+      "verified": false,
+      "description": "Pole 4 bottom-right (2x white + blue) to AC loads neutral + PE."
     }
   ],
 
@@ -310,16 +351,6 @@
       "component": "circuit_breaker",
       "terminal": "p3_top_r",
       "reason": "Reserved for controller LOAD- output. Pole 3 is currently unwired."
-    },
-    {
-      "component": "circuit_breaker",
-      "terminal": "p4_bot_l",
-      "reason": "Pole 4 bottom-left ('2x Brown') feeds AC loads line (L). Shore no longer lands here — shore feeds the SSI 104 AC input directly. AC loads are not yet modelled as a component/destination."
-    },
-    {
-      "component": "circuit_breaker",
-      "terminal": "p4_bot_r",
-      "reason": "Pole 4 bottom-right ('2x White + Blue') feeds AC loads neutral + PE. Shore no longer lands here — shore feeds the SSI 104 AC input directly. AC loads are not yet modelled as a component/destination."
     },
     {
       "component": "circuit_breaker",
@@ -432,7 +463,9 @@
     },
     {
       "id": "q_controller_load",
-      "question": "Why are the controller LOAD+/LOAD- terminals unwired? Is this intentional (loads pulled directly from battery via inverter only) or a planned future addition?",
+      "resolved": true,
+      "question": "Why are the controller LOAD+/LOAD- terminals unwired?",
+      "resolution": "Intentional for now: all AC loads run via the SSI 104 inverter/NVS. The controller LOAD output is unused and the fridge circuit is unconnected (see fridge_circuit_unconnected). No plans to use the LOAD terminals at this time.",
       "affects": []
     }
   ],
