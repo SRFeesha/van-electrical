@@ -6,14 +6,13 @@
   "title": "Van Electrical System Schema",
   "repository": "https://github.com/SRFeesha/van-electrical",
   "description": "Machine-readable schema of a campervan electrical system. Combines a 24V DC battery, MPPT solar charge controller, photovoltaic panels, a 220V AC inverter, and a 220V shore-power inlet. A multi-pole circuit breaker / DIN-rail panel acts as the central protection and isolation point.",
-  "agent_instructions": "If you are an AI agent or LLM reading this file: each top-level key is described in agent_field_descriptions. Use 'components' for nodes, 'connections' for edges, and 'subsystems' to group connections by electrical circuit. Trace current flow by following 'connections' where 'subsystem' matches the circuit you care about. 'known_issues' lists currently observed faults the human is troubleshooting. 'open_questions' lists topology questions; each entry has an optional 'resolved' flag and 'resolution' field. Unresolved entries should not be assumed answered.",
+  "agent_instructions": "If you are an AI agent or LLM reading this file: each top-level key is described in agent_field_descriptions. Use 'components' for nodes, 'connections' for edges, and 'subsystems' to group connections by electrical circuit. Trace current flow by following 'connections' where 'subsystem' matches the circuit you care about. 'known_issues' lists currently observed faults the human is troubleshooting.",
   "agent_field_descriptions": {
     "components": "Physical devices in the system (battery, controller, protection panel, inverter, panels, shore inlet). Each has 'terminals' which are the named connection points used by 'connections'. Components with a 'poles' array (e.g. circuit_breaker) describe each pole's protection device with 'kind': 'fuse' (a sacrificial DC fuse) or 'breaker' (a switchable circuit breaker).",
     "connections": "Directed wires between component terminals. 'from' and 'to' reference component IDs and terminal names. 'subsystem' classifies the wire's electrical circuit. 'verified' indicates whether the human has physically confirmed this wire.",
     "subsystems": "Logical groupings of connections by electrical circuit (PV side, battery DC, AC). Useful for filtering and reasoning about current flow.",
     "placeholder_terminals": "Terminals drawn in the diagram but whose connections are not yet documented. Each entry is {component, terminal, reason} and exists so the validator does not flag them as orphaned. Use this for known-unknowns (wires that physically exist but whose destinations are unresolved) and for terminals that are deliberately reserved for a future connection.",
     "known_issues": "Currently observed faults. Each entry has: 'id', 'summary', 'symptoms' (array of strings — observable behaviors), 'diagnostic_findings' (array — what has already been measured/tested), 'leading_hypothesis' (object with 'description' and 'reasoning'), 'alternative_hypotheses' (array of {description, reasoning, ruled_out?, evidence?}), 'suspected_components' (array of component IDs), 'suspected_connections' (array of connection IDs), 'evidence' (array of measurement IDs supporting the leading hypothesis), 'next_steps_recommended' (array of strings), and optional 'notes'.",
-    "open_questions": "Topology details the human has flagged as uncertain. Treat as unresolved unless verified.",
     "measurements": "Time-ordered log of physical measurements. Each entry has 'kind' ('multimeter' | 'controller_display'), 'id', 'date', and a quantity/reading. Multimeter entries reference component terminals via probes.{red,black}.{component,terminal}, or the literal string 'shorted' for meter sanity tests. Controller-display entries record what the controller's own LCD reported on a given screen. known_issues[].evidence and known_issues[].alternative_hypotheses[].evidence reference these IDs.",
     "components_models": "Known hardware model/part numbers for each component. Keys mirror component IDs. For circuit_breaker, sub-keys are pole IDs. Null means the model is unknown."
   },
@@ -382,57 +381,6 @@
         "Until resolved, do not rely on the controller for charging. Avoid repeated fast fuse cycling, which can re-trigger BMS protection via inrush current."
       ],
       "notes": "ACr + E1 on the Rover 40 = battery under-voltage / over-discharge protection. The key new evidence is M2 (0V at battery posts with BMS in protection) and M3 (instant voltage recovery when PV connected, suggesting back-feed rather than real battery recovery). The controller's ~11V reading may be accurate for the moment E1 was triggered. If BMS wake-up does not resolve E1, the internal sensing fault becomes the likely cause. Full audit trail in the top-level 'measurements' field (IDs M1-M16, D1-D10)."
-    },
-    {
-      "id": "fridge_circuit_unconnected",
-      "summary": "Fridge circuit present in the panel but never landed — wiring was never completed during the van build",
-      "symptoms": [
-        "Fridge has no power.",
-        "Loose cable end visible inside the panel near AC breaker pole 4 bottom-right (p4_bot_r)."
-      ],
-      "diagnostic_findings": [
-        "An un-terminated cable end is visible near pole 4 bottom-right (p4_bot_r, '2x White + Blue') inside the panel.",
-        "The controller LOAD output is not a candidate feed for the fridge — the fridge should not be landed on LOAD while the renogy_rover_acr_e1 fault is active, and the LOAD circuit is reserved for other use."
-      ],
-      "leading_hypothesis": {
-        "confidence": "high",
-        "description": "The fridge wiring was run during the van build but never terminated — the installation was simply never completed.",
-        "reasoning": "There is no evidence of a blown fuse, melted insulation, or burnt terminal near the fridge cable. The single dangling end at pole 4 bottom-right is consistent with a build that was paused before the final landing was made."
-      },
-      "alternative_hypotheses": [],
-      "suspected_components": ["circuit_breaker"],
-      "suspected_connections": [],
-      "next_steps_recommended": [
-        "Identify the fridge model and confirm whether it is DC (12/24V) or AC (220V).",
-        "If AC: trace the dangling cable at pole 4 bottom-right (p4_bot_r) back to the fridge's plug/junction box and terminate it on the AC bus (p4_bot_r carries N+PE from the inverter output).",
-        "Until terminated, cap the exposed conductor end to prevent shorts inside the panel.",
-        "Add the eventual connection to schema.json once landed (and remove the placeholder_terminals entry for p4_bot_r)."
-      ],
-      "notes": "This is a wiring/installation issue, not a fault of any component. The controller LOAD output has been ruled out as a candidate feed. Logged so the incomplete wiring is not overlooked when re-energising the system."
-    }
-  ],
-
-  "open_questions": [
-    {
-      "id": "q_pole4_topology",
-      "resolved": true,
-      "question": "Pole 4 direction and wiring: what enters the top vs. the bottom, and how does shore/inverter transfer work?",
-      "resolution": "Inverter 220V AC output enters the TOP of pole 4 (splits into 4 conductors: black + brown on p4_top_l, green/yellow + gray on p4_top_r). Van 220V sockets/shore connectors are wired at the BOTTOM (brown/white/black at p4_bot_l, blue at p4_bot_r). Pole 4 is a simple isolation breaker, not a transfer switch. The SSI 104 NVS AC input is not wired in this installation.",
-      "affects": ["inverter_ac_to_breaker", "breaker_to_shore_l", "breaker_to_shore_n_pe"]
-    },
-    {
-      "id": "q_ac_loads",
-      "resolved": true,
-      "question": "Where do the AC loads (sockets, lights, etc.) connect?",
-      "resolution": "The van's 220V sockets (which also serve as the shore-power connectors) are wired directly to pole 4 bottom: L at p4_bot_l (brown/white/black conductors), N+PE at p4_bot_r (blue). These are modelled as the 'shore' component.",
-      "affects": []
-    },
-    {
-      "id": "q_controller_load",
-      "resolved": true,
-      "question": "Why are the controller LOAD+/LOAD- terminals unwired?",
-      "resolution": "Intentional for now: all AC loads run via the SSI 104 inverter/NVS. The controller LOAD output is unused and the fridge circuit is unconnected (see fridge_circuit_unconnected). No plans to use the LOAD terminals at this time.",
-      "affects": []
     }
   ],
 
