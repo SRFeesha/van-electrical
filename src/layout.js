@@ -91,31 +91,18 @@ export const terminals = {
 // Wires within the same subsystem leaving the same component share a corridor
 // (e.g. PV+/PV- run side-by-side rather than splaying out).
 export const wirePaths = {
-  // PV: panel down to pole 2 top — short shared corridor
-  pv_panel_pos_to_breaker: `M ${terminals.pv_out_pos.x} ${terminals.pv_out_pos.y} L ${terminals.pv_out_pos.x} 220 L ${terminals.p2_top_l.x} 220 L ${terminals.p2_top_l.x} ${terminals.p2_top_l.y}`,
-  pv_panel_neg_to_breaker: `M ${terminals.pv_out_neg.x} ${terminals.pv_out_neg.y} L ${terminals.pv_out_neg.x} 230 L ${terminals.p2_top_r.x} 230 L ${terminals.p2_top_r.x} ${terminals.p2_top_r.y}`,
-
-  // PV: pole 2 bottom to controller — shared bottom-pv corridor
-  breaker_to_controller_pv_pos: `M ${terminals.p2_bot_l.x} ${terminals.p2_bot_l.y} L ${terminals.p2_bot_l.x} 525 L ${terminals.ctrl_pv_pos.x} 525 L ${terminals.ctrl_pv_pos.x} ${terminals.ctrl_pv_pos.y}`,
-  breaker_to_controller_pv_neg: `M ${terminals.p2_bot_r.x} ${terminals.p2_bot_r.y} L ${terminals.p2_bot_r.x} 535 L ${terminals.ctrl_pv_neg.x} 535 L ${terminals.ctrl_pv_neg.x} ${terminals.ctrl_pv_neg.y}`,
-
-  // Battery DC: controller BAT+ → pole 1 bottom — shared bottom-dc corridor (y=505)
-  controller_bat_pos_to_breaker: `M ${terminals.ctrl_bat_pos.x} ${terminals.ctrl_bat_pos.y} L ${terminals.ctrl_bat_pos.x} 505 L ${terminals.p1_bot_l.x} 505 L ${terminals.p1_bot_l.x} ${terminals.p1_bot_l.y}`,
-  // Battery DC: pole 1 top → battery+ (rises above breaker, runs along y=190 corridor reserved for battery, drops down right of breaker)
-  breaker_to_battery_pos: `M ${terminals.p1_top_l.x} ${terminals.p1_top_l.y} L ${terminals.p1_top_l.x} 190 L 430 190 L 430 670 L ${terminals.bat_pos.x} 670`,
-  // Battery DC: controller BAT- → battery- (mirrors BAT+ corridor at y=515 / x=445)
-  controller_bat_neg_to_battery: `M ${terminals.ctrl_bat_neg.x} ${terminals.ctrl_bat_neg.y} L ${terminals.ctrl_bat_neg.x} 515 L 445 515 L 445 670 L ${terminals.bat_neg.x} 670`,
-  // Battery DC: battery → inverter — shared bottom corridor at y=695 / y=705
-  battery_pos_to_inverter: `M ${terminals.bat_pos.x} ${terminals.bat_pos.y} L ${terminals.bat_pos.x} 695 L ${terminals.inv_dc_pos.x} 695 L ${terminals.inv_dc_pos.x} ${terminals.inv_dc_pos.y}`,
-  battery_neg_to_inverter: `M ${terminals.bat_neg.x} ${terminals.bat_neg.y} L ${terminals.bat_neg.x} 705 L ${terminals.inv_dc_neg.x} 705 L ${terminals.inv_dc_neg.x} ${terminals.inv_dc_neg.y}`,
-
-  // AC: SSI 104 AC out → pole 4 TOP (p4_top_l, y=290).
-  // Route drops below all components (y=795), runs straight across to pole 4, rises to top terminal.
-  inverter_ac_to_breaker: `M ${terminals.inv_ac_out.x} ${terminals.inv_ac_out.y} L ${terminals.inv_ac_out.x} 795 L ${terminals.p4_top_l.x} 795 L ${terminals.p4_top_l.x} ${terminals.p4_top_l.y}`,
-  // AC: pole 4 bottom-left (2x brown) → van socket. Exits downward, sweeps right around canvas edge, rises to shore box.
-  breaker_to_shore: `M ${terminals.p4_bot_l.x} ${terminals.p4_bot_l.y} L ${terminals.p4_bot_l.x} 450 L 1080 450 L 1080 150 L ${terminals.light.x} 150 L ${terminals.light.x} ${terminals.light.y}`,
-  // AC: pole 4 bottom-right (2x white + blue) drops to y=450 and merges into the breaker_to_shore corridor.
-  breaker_to_shore_r: `M ${terminals.p4_bot_r.x} ${terminals.p4_bot_r.y} L ${terminals.p4_bot_r.x} 450 L ${terminals.p4_bot_l.x} 450`,
+  pv_panel_pos_to_breaker: `M 540 170 L 540 220 L 660 220 L 660 290`,
+  pv_panel_neg_to_breaker: `M 580 170 L 580 230 L 730 230 L 730 290`,
+  breaker_to_controller_pv_pos: `M 660 390 L 660 525 L 80 525 L 80 430`,
+  breaker_to_controller_pv_neg: `M 730 390 L 730 535 L 130 535 L 130 430`,
+  controller_bat_pos_to_breaker: `M 180 430 L 180 505 L 515 505 L 515 390`,
+  breaker_to_battery_pos: `M 515 290 L 515 190 L 430 190 L 430 690 L 740 670`,
+  controller_bat_neg_to_battery: `M 230 430 L 230 515 L 445 515 L 445 655 L 660 670`,
+  battery_pos_to_inverter: `M 740 670 L 740 605 L 240 605 L 240 660`,
+  battery_neg_to_inverter: `M 660 670 L 660 620 L 170 620 L 170 660`,
+  inverter_ac_to_breaker: `M 200 740 L 200 795 L 915 795 L 950 290`,
+  breaker_to_shore: `M 950 390 L 950 450 L 1080 450 L 1080 190 L 910 190 L 910 170`,
+  breaker_to_shore_r: `M 1020 390 L 1020 450 L 950 450`,
 }
 
 export const subsystemColors = {
