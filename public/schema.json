@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft-07/schema",
   "version": "1.0.0",
-  "updated": "2026-05-09",
+  "updated": "2026-05-10",
   "vehicle": "campervan",
   "title": "Van Electrical System Schema",
   "description": "Machine-readable schema of a campervan electrical system. Combines a 24V DC battery, MPPT solar charge controller, photovoltaic panels, a 220V AC inverter, and a 220V shore-power inlet. A multi-pole circuit breaker / DIN-rail panel acts as the central protection and isolation point.",
@@ -316,9 +316,9 @@
         "E1 on the Rover 40 is the battery UNDER-voltage / over-discharge protection code — consistent with the controller's ~11 V reading, even though the actual pack is at ~29 V."
       ],
       "leading_hypothesis": {
-        "confidence": "high",
+        "confidence": "very_high",
         "description": "Hardware failure of the controller's internal battery voltage-sense circuit (or its calibration). The controller is reporting ~11 V while the actual battery is at ~29 V, so it locks itself into E1 (under-voltage) and refuses to charge.",
-        "reasoning": "This is the only hypothesis that explains all of the evidence at once: the battery measures correct on a calibrated meter (29 V), polarity and wiring at the controller match labels, the fault survives full power cycles, and the displayed voltage is wildly wrong (~11 V) in a way that no plausible amount of wiring resistance could produce. An 18 V discrepancy with no current flowing rules out IR drop on the BAT leads. The controller itself is mis-reading."
+        "reasoning": "This is the only hypothesis that fits all the evidence: the battery measures 29 V on a calibrated meter, polarity and wiring at the controller match labels, the fault survives full power cycles, and the displayed voltage is ~18 V below reality — a gap no amount of wiring resistance could produce with no current flowing. Every alternative below is a wiring-side fault that can be falsified in seconds by probing the controller's BAT+/BAT- terminal screws directly; if that reads ~29 V while the display still says ~11 V, the controller is conclusively the faulty part."
       },
       "alternative_hypotheses": [
         {
