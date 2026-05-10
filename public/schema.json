@@ -130,15 +130,17 @@
 
     "inverter": {
       "id": "inverter",
-      "label": "DC→AC Inverter",
+      "label": "ECTIVE SSI 104 Inverter/Charger/NVS",
       "type": "dc_ac_inverter",
-      "description": "Converts 24V DC from the battery into 220V AC. Output joins the AC bus at the breaker (pole 4).",
+      "model": "ECTIVE SSI 10 24V (SSI 104)",
+      "description": "4-in-1 device: pure-sine inverter (1000W), 20A battery charger, built-in MPPT solar input (unused — PV feeds the Renogy Rover only), and NVS/UPS function with <16ms shore-to-inverter switchover. Shore-vs-inverter transfer is handled internally by the NVS circuit; pole 4 carries both sources but is not the transfer switch. ECO mode: device enters auto-standby when no AC load is detected.",
       "terminals": [
         { "id": "inv_dc_pos", "label": "+ (24V DC in)", "kind": "dc", "polarity": "+" },
         { "id": "inv_dc_neg", "label": "- (24V DC in)", "kind": "dc", "polarity": "-" },
-        { "id": "inv_ac_out", "label": "220V AC out", "kind": "ac" }
+        { "id": "inv_ac_out", "label": "220V AC out / shore AC in", "kind": "ac" }
       ],
       "voltage_nominal": "220V AC out",
+      "notes": "The SSI 104's built-in MPPT solar input is not connected — all PV goes to the Renogy Rover 40 controller. Do not wire PV to the SSI 104 solar input without reconfiguring the system.",
       "position_hint": "bottom-left"
     }
   },
@@ -153,7 +155,7 @@
       "pole_3": "ABB E91hN/32 (fuse holder, 32A, 400V, 10.3×38mm)",
       "pole_4": "ABB SN201L C10 (10A AC breaker)"
     },
-    "inverter": null,
+    "inverter": "ECTIVE SSI 10 24V (SSI 104)",
     "shore": null
   },
 
@@ -292,8 +294,8 @@
       "label": "AC 220V",
       "color": "orange",
       "voltage": "220V AC",
-      "description": "Two AC sources (shore inlet, inverter output) meet at pole 4 of the breaker.",
-      "current_flow": "When shore is plugged in: shore → pole 4 → AC loads. When on inverter: battery → inverter → pole 4 → AC loads. Source selection is currently uncertain — see open_questions."
+      "description": "Two AC sources (shore inlet, inverter output) meet at pole 4 of the breaker. Transfer between them is handled internally by the ECTIVE SSI 104 NVS circuit (<16ms switchover); pole 4 is a simple isolation breaker, not a changeover switch.",
+      "current_flow": "When shore is plugged in: shore → SSI 104 NVS → pole 4 → AC loads. When on battery: battery → SSI 104 inverter → pole 4 → AC loads. The SSI 104 manages source selection automatically."
     }
   },
 
@@ -410,7 +412,9 @@
   "open_questions": [
     {
       "id": "q_pole4_topology",
-      "question": "Pole 4 direction is now known (per user): inverter output feeds the TOP (split into 4 conductors — black + brown on top-left, green/yellow + gray on top-right); shore inlet and AC loads share the BOTTOM (2x brown at p4_bot_l = shore L + load L; 2x white + blue at p4_bot_r = shore N + load N + PE). Remaining unknown: where the changeover/transfer between shore and inverter actually happens — pole 4 alone is a single breaker, so either there is an external transfer switch upstream of the inverter, or the inverter is intended never to run while shore is plugged in.",
+      "resolved": true,
+      "question": "Pole 4 direction is known: inverter output feeds the TOP (split into 4 conductors — black + brown on top-left, green/yellow + gray on top-right); shore inlet and AC loads share the BOTTOM (2x brown at p4_bot_l = shore L + load L; 2x white + blue at p4_bot_r = shore N + load N + PE). Shore-vs-inverter changeover is handled internally by the ECTIVE SSI 104 NVS circuit with <16ms switchover — pole 4 is a simple breaker carrying both sources, not a transfer switch.",
+      "resolution": "The ECTIVE SSI 104 is a 4-in-1 NVS/UPS device. Transfer between shore and inverter happens inside the unit; no external changeover switch is required or present.",
       "affects": ["shore_l_to_breaker", "shore_n_pe_to_breaker", "inverter_ac_to_breaker"]
     },
     {
