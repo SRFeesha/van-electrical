@@ -261,14 +261,6 @@ export default function App() {
           ))}
         </div>
 
-        <div className="panel">
-          <h2>Open questions</h2>
-          {schema.open_questions.map((q) => (
-            <div key={q.id} className="question">
-              <p>{q.question}</p>
-            </div>
-          ))}
-        </div>
       </section>
 
       <footer className="footer">
