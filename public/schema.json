@@ -12,8 +12,9 @@
     "connections": "Directed wires between component terminals. 'from' and 'to' reference component IDs and terminal names. 'subsystem' classifies the wire's electrical circuit. 'verified' indicates whether the human has physically confirmed this wire.",
     "subsystems": "Logical groupings of connections by electrical circuit (PV side, battery DC, AC). Useful for filtering and reasoning about current flow.",
     "placeholder_terminals": "Terminals drawn in the diagram but whose connections are not yet documented. Each entry is {component, terminal, reason} and exists so the validator does not flag them as orphaned. Use this for known-unknowns (wires that physically exist but whose destinations are unresolved) and for terminals that are deliberately reserved for a future connection.",
-    "known_issues": "Currently observed faults. Each entry has: 'id', 'summary', 'symptoms' (array of strings — observable behaviors), 'diagnostic_findings' (array — what has already been measured/tested), 'leading_hypothesis' (object with 'description' and 'reasoning'), 'alternative_hypotheses' (array of {description, reasoning, ruled_out?}), 'suspected_components' (array of component IDs), 'suspected_connections' (array of connection IDs), 'next_steps_recommended' (array of strings), and optional 'notes'.",
-    "open_questions": "Topology details the human has flagged as uncertain. Treat as unresolved unless verified."
+    "known_issues": "Currently observed faults. Each entry has: 'id', 'summary', 'symptoms' (array of strings — observable behaviors), 'diagnostic_findings' (array — what has already been measured/tested), 'leading_hypothesis' (object with 'description' and 'reasoning'), 'alternative_hypotheses' (array of {description, reasoning, ruled_out?, evidence?}), 'suspected_components' (array of component IDs), 'suspected_connections' (array of connection IDs), 'evidence' (array of measurement IDs supporting the leading hypothesis), 'next_steps_recommended' (array of strings), and optional 'notes'.",
+    "open_questions": "Topology details the human has flagged as uncertain. Treat as unresolved unless verified.",
+    "measurements": "Time-ordered log of physical measurements. Each entry has 'kind' ('multimeter' | 'controller_display'), 'id', 'date', and a quantity/reading. Multimeter entries reference component terminals via probes.{red,black}.{component,terminal}, or the literal string 'shorted' for meter sanity tests. Controller-display entries record what the controller's own LCD reported on a given screen. known_issues[].evidence and known_issues[].alternative_hypotheses[].evidence reference these IDs."
   },
 
   "components": {
@@ -321,21 +322,24 @@
         "PV input present at controller PV+/PV- when sun is on the panels.",
         "E1 on the Rover 40 is the battery UNDER-voltage / over-discharge protection code — consistent with the controller's ~11 V reading, even though the actual pack is at ~29 V."
       ],
+      "evidence": ["M1", "M3", "M4", "M5", "M7", "M8", "M9", "M10", "M11", "M14", "D1", "D2", "D3", "D6", "D10"],
       "leading_hypothesis": {
         "confidence": "very_high",
         "description": "Hardware failure of the controller's internal battery voltage-sense circuit (or its calibration). The controller is reporting ~11 V while the actual battery is at ~29 V, so it locks itself into E1 (under-voltage) and refuses to charge.",
-        "reasoning": "This is the only hypothesis that fits all the evidence: the battery measures 29 V on a calibrated meter, polarity and wiring at the controller match labels, the fault survives full power cycles, and the displayed voltage is ~18 V below reality — a gap no amount of wiring resistance could produce with no current flowing. Every alternative below is a wiring-side fault that can be falsified in seconds by probing the controller's BAT+/BAT- terminal screws directly; if that reads ~29 V while the display still says ~11 V, the controller is conclusively the faulty part."
+        "reasoning": "Direct evidence: M4 reads 29 V at the controller's own BAT+/BAT- terminal screws while D1/D2/D3 show the controller's LCD reporting 10.9-12.7 V on the same battery at the same moment. M7-M11 measure 0 V drop across every link of the BAT+ and BAT- paths, so no wiring resistance can account for the ~18 V gap (and no current is flowing — D7 = 0 A — so even nominal IR drop would be zero). M14/D6 show the PV-sense path reads correctly (40 V at probes, 37.8 V on display), which isolates the fault to the BAT-side analog front-end inside the controller. Meter sanity confirmed in M12. Every alternative below is now ruled out by these measurements."
       },
       "alternative_hypotheses": [
         {
           "description": "Severely high-resistance / open connection on the BAT- sense leg between controller and battery, causing the controller to read a near-open-circuit voltage instead of the battery.",
-          "reasoning": "The controller_bat_neg_to_battery wire is now confirmed to exist end-to-end, but 'wire exists' isn't the same as 'low resistance under load'. Still worth ruling out with a continuity / voltage-drop check between the controller's BAT- terminal and the battery negative post before declaring the controller dead.",
-          "ruled_out": false
+          "reasoning": "Originally plausible because controller_bat_neg_to_battery had not been probed under load. M11 measured 0 V drop between battery- and controller BAT- with the system live — the BAT- leg is electrically clean, and the controller is still reporting wrong.",
+          "ruled_out": true,
+          "evidence": ["M11"]
         },
         {
           "description": "Fuse pole 1 has degraded to the point that BAT+ is intermittently open at the controller side, and the controller is reading something other than the battery.",
-          "reasoning": "Less likely than a broken sense circuit, because under-voltage at 11 V (not 0 V) is closer to a calibration/sensing failure than an open. Easy to test by bypassing pole 1 temporarily.",
-          "ruled_out": false
+          "reasoning": "M7, M8, M9 individually and M10 cumulatively measure 0 V drop across the battery-to-controller BAT+ path (including across the fuse itself). The fuse and its wiring are fine.",
+          "ruled_out": true,
+          "evidence": ["M7", "M8", "M9", "M10"]
         }
       ],
       "suspected_components": ["controller", "circuit_breaker"],
@@ -350,7 +354,7 @@
         "If voltage at the controller's screws is significantly lower than at the battery, inspect and re-torque BAT+ at fuse pole 1 and BAT- at the controller / battery posts; bypass pole 1 temporarily to rule the fuse holder in or out.",
         "Until resolved, do not rely on the controller for charging; the battery should not be connected to the controller's BAT terminals while the fault is active because the controller's behaviour is unpredictable."
       ],
-      "notes": "ACr + E1 on the Rover 40 = battery under-voltage / over-discharge protection. With a measured 29 V at the battery terminals, the controller's claim of 11 V is a sensing failure, not a real battery condition. Do not assume the battery is in trouble."
+      "notes": "ACr + E1 on the Rover 40 = battery under-voltage / over-discharge protection. With a measured 29 V at the battery terminals, the controller's claim of 11 V is a sensing failure, not a real battery condition. Do not assume the battery is in trouble. Full audit trail in the top-level 'measurements' field (IDs M1-M16, D1-D10)."
     },
     {
       "id": "fridge_circuit_unconnected",
@@ -403,6 +407,307 @@
       "id": "q_controller_load",
       "question": "Why are the controller LOAD+/LOAD- terminals unwired? Is this intentional (loads pulled directly from battery via inverter only) or a planned future addition?",
       "affects": []
+    }
+  ],
+
+  "measurements": [
+    {
+      "id": "M1",
+      "kind": "multimeter",
+      "date": "2026-05-09",
+      "quantity": "voltage_dc",
+      "meter_setup": { "range": "200V" },
+      "probes": {
+        "red":   { "component": "battery", "terminal": "bat_pos" },
+        "black": { "component": "battery", "terminal": "bat_neg" }
+      },
+      "reading": { "value": 29, "unit": "V" },
+      "system_state": "controller in ACr; both fuses closed",
+      "implication": "Battery healthy and well-charged for a 24 V LiFePO4 pack."
+    },
+    {
+      "id": "M2",
+      "kind": "multimeter",
+      "date": "2026-05-09",
+      "quantity": "voltage_dc",
+      "meter_setup": { "range": "200V" },
+      "probes": {
+        "red":   { "component": "battery", "terminal": "bat_pos" },
+        "black": { "component": "battery", "terminal": "bat_neg" }
+      },
+      "reading": { "value": 0, "unit": "V" },
+      "system_state": "after fuse cycling — BAT fuse opened/closed in quick succession",
+      "implication": "Battery's BMS shut off (protection mode triggered, probably by inrush from fuse cycling). Battery itself still fine; BMS is doing its job."
+    },
+    {
+      "id": "M3",
+      "kind": "multimeter",
+      "date": "2026-05-09",
+      "quantity": "voltage_dc",
+      "meter_setup": { "range": "200V" },
+      "probes": {
+        "red":   { "component": "battery", "terminal": "bat_pos" },
+        "black": { "component": "battery", "terminal": "bat_neg" }
+      },
+      "reading": { "value": 30, "unit": "V" },
+      "system_state": "after PV reconnect; BMS recovered",
+      "implication": "BMS auto-recovered. Battery alive again — confirms M2 was BMS protection, not a battery fault."
+    },
+    {
+      "id": "M4",
+      "kind": "multimeter",
+      "date": "2026-05-09",
+      "quantity": "voltage_dc",
+      "meter_setup": { "range": "200V" },
+      "probes": {
+        "red":   { "component": "controller", "terminal": "ctrl_bat_pos" },
+        "black": { "component": "controller", "terminal": "ctrl_bat_neg" }
+      },
+      "reading": { "value": 29, "unit": "V" },
+      "system_state": "controller in ACr",
+      "implication": "Battery voltage IS reaching the controller's terminals. The controller's LCD reading ~11 V (D1) cannot be explained by anything outside the controller."
+    },
+    {
+      "id": "M5",
+      "kind": "multimeter",
+      "date": "2026-05-09",
+      "quantity": "voltage_dc",
+      "meter_setup": { "range": "200V" },
+      "probes": {
+        "red":   { "component": "controller", "terminal": "ctrl_bat_pos" },
+        "black": { "component": "battery",    "terminal": "bat_neg" }
+      },
+      "reading": { "value": 29, "unit": "V" },
+      "system_state": "controller in ACr",
+      "implication": "Cross-references controller BAT+ to battery negative — confirms positive path is intact end-to-end."
+    },
+    {
+      "id": "M6",
+      "kind": "multimeter",
+      "date": "2026-05-09",
+      "quantity": "voltage_dc",
+      "meter_setup": { "range": "200V" },
+      "probes": {
+        "red":   { "component": "battery", "terminal": "bat_pos" },
+        "black": { "component": "battery", "terminal": "bat_neg" }
+      },
+      "reading": { "value": 29, "unit": "V" },
+      "system_state": "controller in ACr",
+      "implication": "Cross-check of M1/M3 — independent confirmation of battery voltage with the meter still in the same configuration used for M4/M5."
+    },
+    {
+      "id": "M7",
+      "kind": "multimeter",
+      "date": "2026-05-09",
+      "quantity": "voltage_drop_dc",
+      "meter_setup": { "range": "20V" },
+      "probes": {
+        "red":   { "component": "battery",         "terminal": "bat_pos" },
+        "black": { "component": "circuit_breaker", "terminal": "p1_top_l" }
+      },
+      "reading": { "value": 0, "unit": "V" },
+      "system_state": "system live; controller in ACr",
+      "implication": "Wire from battery+ to fuse pole 1 top: zero drop. Conductor is clean."
+    },
+    {
+      "id": "M8",
+      "kind": "multimeter",
+      "date": "2026-05-09",
+      "quantity": "voltage_drop_dc",
+      "meter_setup": { "range": "20V" },
+      "probes": {
+        "red":   { "component": "circuit_breaker", "terminal": "p1_top_l" },
+        "black": { "component": "circuit_breaker", "terminal": "p1_bot_l" }
+      },
+      "reading": { "value": 0, "unit": "V" },
+      "system_state": "system live; controller in ACr; fuse pole 1 closed",
+      "implication": "Voltage drop across the fuse itself is zero. Fuse intact, holder making good contact."
+    },
+    {
+      "id": "M9",
+      "kind": "multimeter",
+      "date": "2026-05-09",
+      "quantity": "voltage_drop_dc",
+      "meter_setup": { "range": "20V" },
+      "probes": {
+        "red":   { "component": "circuit_breaker", "terminal": "p1_bot_l" },
+        "black": { "component": "controller",     "terminal": "ctrl_bat_pos" }
+      },
+      "reading": { "value": 0, "unit": "V" },
+      "system_state": "system live; controller in ACr",
+      "implication": "Wire from fuse pole 1 bottom to controller BAT+: zero drop."
+    },
+    {
+      "id": "M10",
+      "kind": "multimeter",
+      "date": "2026-05-09",
+      "quantity": "voltage_drop_dc",
+      "meter_setup": { "range": "20V" },
+      "probes": {
+        "red":   { "component": "battery",    "terminal": "bat_pos" },
+        "black": { "component": "controller", "terminal": "ctrl_bat_pos" }
+      },
+      "reading": { "value": 0, "unit": "V" },
+      "system_state": "system live; controller in ACr",
+      "implication": "Cumulative drop across the full BAT+ path (battery → fuse → controller) is zero — no hidden bad joint anywhere on the positive leg."
+    },
+    {
+      "id": "M11",
+      "kind": "multimeter",
+      "date": "2026-05-09",
+      "quantity": "voltage_drop_dc",
+      "meter_setup": { "range": "20V" },
+      "probes": {
+        "red":   { "component": "battery",    "terminal": "bat_neg" },
+        "black": { "component": "controller", "terminal": "ctrl_bat_neg" }
+      },
+      "reading": { "value": 0, "unit": "V" },
+      "system_state": "system live; controller in ACr",
+      "implication": "BAT- leg also has zero drop — rules out the 'BAT- sense leg high-resistance' alternative hypothesis."
+    },
+    {
+      "id": "M12",
+      "kind": "multimeter",
+      "date": "2026-05-09",
+      "quantity": "voltage_dc",
+      "meter_setup": { "range": "20V" },
+      "probes": "shorted",
+      "reading": { "value": 0, "unit": "V" },
+      "system_state": "meter sanity check — probe tips touching",
+      "implication": "Voltmeter operating correctly. Rules out instrument error as an explanation of the M4/D1 mismatch."
+    },
+    {
+      "id": "M13",
+      "kind": "multimeter",
+      "date": "2026-05-09",
+      "quantity": "voltage_dc",
+      "meter_setup": { "range": "200V" },
+      "probes": {
+        "red":   { "component": "battery", "terminal": "bat_pos" },
+        "black": { "component": "battery", "terminal": "bat_neg" }
+      },
+      "reading": { "value": 30, "unit": "V" },
+      "system_state": "post sanity-check re-measurement at battery posts",
+      "implication": "Confirms the M1/M3 readings are real, not meter artifacts."
+    },
+    {
+      "id": "M14",
+      "kind": "multimeter",
+      "date": "2026-05-09",
+      "quantity": "voltage_dc",
+      "meter_setup": { "range": "200V" },
+      "probes": {
+        "red":   { "component": "controller", "terminal": "ctrl_pv_pos" },
+        "black": { "component": "controller", "terminal": "ctrl_pv_neg" }
+      },
+      "reading": { "value": 40, "unit": "V" },
+      "system_state": "sun on panels, PV fuse closed",
+      "implication": "PV side healthy: panels and PV wiring functional, voltage reaching the controller PV inputs."
+    },
+    {
+      "id": "M16",
+      "kind": "multimeter",
+      "date": "2026-05-09",
+      "quantity": "voltage_dc",
+      "meter_setup": { "range": "200V" },
+      "probes": {
+        "red":   { "component": "controller", "terminal": "ctrl_load_pos" },
+        "black": { "component": "controller", "terminal": "ctrl_load_neg" }
+      },
+      "reading": { "value": 0, "unit": "V" },
+      "system_state": "controller in ACr",
+      "implication": "Expected: LOAD output is gated off while ACr is active, and the LOAD circuit is unwired anyway. Provides no information about the fault — recorded for completeness."
+    },
+
+    {
+      "id": "D1",
+      "kind": "controller_display",
+      "date": "2026-05-09",
+      "device": "controller",
+      "screen": "battery_voltage",
+      "displayed": { "value": 10.9, "unit": "V" },
+      "implication": "Smoking gun. Mismatches M4 (29 V at the same controller BAT terminals) by ~18 V, which no wiring resistance can produce at zero current."
+    },
+    {
+      "id": "D2",
+      "kind": "controller_display",
+      "date": "2026-05-09",
+      "device": "controller",
+      "screen": "battery_voltage",
+      "displayed": { "value": 12.7, "unit": "V" },
+      "implication": "Reading drifts between samples while the actual battery is steady at ~29-30 V — typical of a broken sense circuit, not of a real voltage."
+    },
+    {
+      "id": "D3",
+      "kind": "controller_display",
+      "date": "2026-05-09",
+      "device": "controller",
+      "screen": "battery_voltage",
+      "displayed": { "value": 11.1, "unit": "V" },
+      "implication": "Same screen, different sample — confirms the ~11 V neighbourhood is the controller's persistent (wrong) view of the battery."
+    },
+    {
+      "id": "D4",
+      "kind": "controller_display",
+      "date": "2026-05-09",
+      "device": "controller",
+      "screen": "battery_state_of_charge",
+      "displayed": { "value": 0.0, "unit": "%" },
+      "implication": "Derived from the bogus voltage — useless while sensing is broken."
+    },
+    {
+      "id": "D5",
+      "kind": "controller_display",
+      "date": "2026-05-09",
+      "device": "controller",
+      "screen": "battery_state_of_charge",
+      "displayed": { "value": 20.2, "unit": "%" },
+      "implication": "Same field as D4 sampled later — wanders with D2/D3, again because the underlying voltage estimate is wrong."
+    },
+    {
+      "id": "D6",
+      "kind": "controller_display",
+      "date": "2026-05-09",
+      "device": "controller",
+      "screen": "pv_voltage",
+      "displayed": { "value": 37.8, "unit": "V" },
+      "implication": "Agrees with M14 (40 V at PV terminals) within meter tolerance. The PV-sense path is fine — it is specifically the BAT-sense path that is broken inside the unit. This isolates the fault to one half of the controller's analog front-end."
+    },
+    {
+      "id": "D7",
+      "kind": "controller_display",
+      "date": "2026-05-09",
+      "device": "controller",
+      "screen": "charging_current",
+      "displayed": { "value": 0.0, "unit": "A" },
+      "implication": "Consistent with E1 latching the charge stage off."
+    },
+    {
+      "id": "D8",
+      "kind": "controller_display",
+      "date": "2026-05-09",
+      "device": "controller",
+      "screen": "ah_today",
+      "displayed": { "value": 0, "unit": "Ah" },
+      "implication": "Zero charge delivered today — same root cause as D7."
+    },
+    {
+      "id": "D9",
+      "kind": "controller_display",
+      "date": "2026-05-09",
+      "device": "controller",
+      "screen": "battery_temperature",
+      "displayed": { "value": 14.0, "unit": "°C" },
+      "implication": "Plausible value — recorded for context, not load-bearing for the diagnosis."
+    },
+    {
+      "id": "D10",
+      "kind": "controller_display",
+      "date": "2026-05-09",
+      "device": "controller",
+      "screen": "error_code",
+      "displayed": { "value": "ACr + E1", "unit": "code" },
+      "implication": "ACr (acclimating/charge-blocked) + E1 (battery under-voltage / over-discharge protection) — the controller's own statement of why it has stopped charging."
     }
   ]
 }

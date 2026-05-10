@@ -108,7 +108,25 @@ for (const tid of Object.keys(layoutTerminals)) {
   }
 }
 
-// 5. known_issues: suspected_connections / suspected_components must exist.
+// 5. measurements: probe references must resolve to real terminals.
+const measurementIds = new Set()
+for (const m of schema.measurements || []) {
+  const loc = `${SCHEMA_PATH}:${lineOf(`"${m.id}"`)}`
+  if (measurementIds.has(m.id)) err(loc, `measurement '${m.id}' duplicated`)
+  measurementIds.add(m.id)
+  if (m.kind !== 'multimeter') continue
+  if (typeof m.probes === 'string') continue
+  for (const side of ['red', 'black']) {
+    const ref = m.probes?.[side]
+    if (!ref) { err(loc, `measurement ${m.id}: missing probes.${side}`); continue }
+    const set = validTerminals.get(ref.component)
+    if (!set) err(loc, `measurement ${m.id}: probes.${side}.component '${ref.component}' unknown`)
+    else if (!set.has(ref.terminal)) err(loc, `measurement ${m.id}: probes.${side}.terminal '${ref.terminal}' not found on '${ref.component}'`)
+  }
+}
+
+// 6. known_issues: suspected_connections / suspected_components must exist;
+//    evidence[] (issue and per-alternative) must reference real measurement ids.
 //    open_questions: affects[] ids must be valid connection ids.
 for (const iss of schema.known_issues || []) {
   const loc = `${SCHEMA_PATH}:${lineOf(`"${iss.id}"`)}`
@@ -120,6 +138,14 @@ for (const iss of schema.known_issues || []) {
   for (const cid of iss.suspected_components || []) {
     if (!schema.components[cid]) {
       err(loc, `known_issue ${iss.id}: suspected_components references unknown component '${cid}'`)
+    }
+  }
+  for (const eid of iss.evidence || []) {
+    if (!measurementIds.has(eid)) err(loc, `known_issue ${iss.id}: evidence references unknown measurement '${eid}'`)
+  }
+  for (const alt of iss.alternative_hypotheses || []) {
+    for (const eid of alt.evidence || []) {
+      if (!measurementIds.has(eid)) err(loc, `known_issue ${iss.id}: alternative_hypotheses[].evidence references unknown measurement '${eid}'`)
     }
   }
 }
