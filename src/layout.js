@@ -11,7 +11,6 @@ export const components = {
   controller: { x: 40, y: 360, w: 380, h: 130, label: 'Controller' },
   inverter: { x: 80, y: 600, w: 280, h: 180, label: 'Inverter' },
   battery: { x: 540, y: 620, w: 240, h: 130, label: 'Battery' },
-  ac_loads: { x: 820, y: 480, w: 200, h: 100, label: 'AC Loads' },
 }
 
 // Pole sub-rectangles inside circuit breaker
@@ -79,12 +78,7 @@ export const terminals = {
   // Inverter
   inv_dc_pos: { x: 240, y: 660, label: '+' },
   inv_dc_neg: { x: 170, y: 660, label: '-' },
-  inv_ac_in: { x: 310, y: 740, label: 'AC in' },
   inv_ac_out: { x: 200, y: 740, label: '220V' },
-
-  // AC loads
-  loads_l: { x: 860, y: 560, label: 'L in' },
-  loads_n_pe: { x: 980, y: 560, label: 'N+PE' },
 }
 
 // Wire path drawings. Each connection id maps to an SVG path string.
@@ -116,16 +110,13 @@ export const wirePaths = {
   battery_pos_to_inverter: `M ${terminals.bat_pos.x} ${terminals.bat_pos.y} L ${terminals.bat_pos.x} 695 L ${terminals.inv_dc_pos.x} 695 L ${terminals.inv_dc_pos.x} ${terminals.inv_dc_pos.y}`,
   battery_neg_to_inverter: `M ${terminals.bat_neg.x} ${terminals.bat_neg.y} L ${terminals.bat_neg.x} 705 L ${terminals.inv_dc_neg.x} 705 L ${terminals.inv_dc_neg.x} ${terminals.inv_dc_neg.y}`,
 
-  // AC: shore → SSI 104 AC input — y=200/210 corridors run all the way left to the inverter
-  shore_l_to_inverter: `M ${terminals.shore_l.x} ${terminals.shore_l.y} L ${terminals.shore_l.x} 200 L ${terminals.inv_ac_in.x} 200 L ${terminals.inv_ac_in.x} ${terminals.inv_ac_in.y}`,
-  shore_n_pe_to_inverter: `M ${terminals.shore_n_pe.x} ${terminals.shore_n_pe.y} L ${terminals.shore_n_pe.x} 210 L ${terminals.inv_ac_in.x} 210 L ${terminals.inv_ac_in.x} ${terminals.inv_ac_in.y}`,
   // AC: SSI 104 AC out → pole 4 TOP (p4_top_l, y=290).
-  // Route drops below all components (y=795), runs straight across to x of pole 4, then
-  // rises up through the breaker box to the top terminal.
+  // Route drops below all components (y=795), runs straight across to pole 4, rises to top terminal.
   inverter_ac_to_breaker: `M ${terminals.inv_ac_out.x} ${terminals.inv_ac_out.y} L ${terminals.inv_ac_out.x} 795 L ${terminals.p4_top_l.x} 795 L ${terminals.p4_top_l.x} ${terminals.p4_top_l.y}`,
-  // AC: pole 4 bottom → AC loads
-  breaker_to_ac_loads_l: `M ${terminals.p4_bot_l.x} ${terminals.p4_bot_l.y} L ${terminals.p4_bot_l.x} 450 L ${terminals.loads_l.x} 450 L ${terminals.loads_l.x} ${terminals.loads_l.y}`,
-  breaker_to_ac_loads_n_pe: `M ${terminals.p4_bot_r.x} ${terminals.p4_bot_r.y} L ${terminals.p4_bot_r.x} 460 L ${terminals.loads_n_pe.x} 460 L ${terminals.loads_n_pe.x} ${terminals.loads_n_pe.y}`,
+  // AC: pole 4 bottom → van sockets / shore connectors.
+  // Route exits the breaker downward, sweeps right around the canvas edge, and rises to the shore box.
+  breaker_to_shore_l: `M ${terminals.p4_bot_l.x} ${terminals.p4_bot_l.y} L ${terminals.p4_bot_l.x} 450 L 1080 450 L 1080 155 L ${terminals.shore_l.x} 155 L ${terminals.shore_l.x} ${terminals.shore_l.y}`,
+  breaker_to_shore_n_pe: `M ${terminals.p4_bot_r.x} ${terminals.p4_bot_r.y} L ${terminals.p4_bot_r.x} 460 L 1090 460 L 1090 145 L ${terminals.shore_n_pe.x} 145 L ${terminals.shore_n_pe.x} ${terminals.shore_n_pe.y}`,
 }
 
 export const subsystemColors = {

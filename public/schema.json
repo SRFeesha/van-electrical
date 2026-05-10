@@ -35,13 +35,13 @@
 
     "shore": {
       "id": "shore",
-      "label": "Shore Power Inlet",
-      "type": "ac_inlet",
+      "label": "220V AC Sockets / Shore Inlet",
+      "type": "ac_socket_shore",
       "model": null,
-      "description": "External 220V AC inlet (CEE / Schuko-style). Connects directly to the SSI 104 NVS AC input; the inverter handles source selection internally.",
+      "description": "Two 220V AC sockets in the campervan. Normally fed by the SSI 104 inverter via pole 4. The same connectors double as a shore-power inlet when plugged into campsite mains (at which point current flows in reverse through pole 4 into the inverter for battery charging). Wire colours observed: brown/white/black on the L side, blue on the N+PE side.",
       "terminals": [
-        { "id": "shore_l", "label": "L (line)", "kind": "ac", "wire_color_observed": "brown" },
-        { "id": "shore_n_pe", "label": "N + PE", "kind": "ac", "wire_color_observed": "blue + green/yellow" }
+        { "id": "shore_l", "label": "L (socket line / shore L)", "kind": "ac", "wire_color_observed": "brown + white + black" },
+        { "id": "shore_n_pe", "label": "N + PE (socket neutral / shore N+PE)", "kind": "ac", "wire_color_observed": "blue" }
       ],
       "voltage_nominal": "220V AC",
       "position_hint": "top-right"
@@ -141,30 +141,15 @@
       "label": "ECTIVE SSI 104 Inverter/Charger/NVS",
       "type": "dc_ac_inverter",
       "model": "ECTIVE SSI 10 24V (SSI 104)",
-      "description": "4-in-1 device: pure-sine inverter (1000W), 20A battery charger, built-in MPPT solar input (unused — PV feeds the Renogy Rover only), and NVS/UPS function with <16ms shore-to-inverter switchover. Shore-vs-inverter transfer is handled internally by the NVS circuit; pole 4 carries both sources but is not the transfer switch. ECO mode: device enters auto-standby when no AC load is detected.",
+      "description": "4-in-1 device: pure-sine inverter (1000W), 20A battery charger, built-in MPPT solar input (unused — PV feeds the Renogy Rover only), NVS/UPS capability (<16ms switchover). In this installation the device is wired as a straight inverter — DC in from battery, 220V AC out to pole 4 top, then on to the van sockets. The NVS/shore-AC input is not wired. ECO mode: auto-standby when no AC load is detected.",
       "terminals": [
         { "id": "inv_dc_pos", "label": "+ (24V DC in)", "kind": "dc", "polarity": "+" },
         { "id": "inv_dc_neg", "label": "- (24V DC in)", "kind": "dc", "polarity": "-" },
-        { "id": "inv_ac_in", "label": "220V AC in (shore / NVS input)", "kind": "ac" },
-        { "id": "inv_ac_out", "label": "220V AC out (to pole 4)", "kind": "ac" }
+        { "id": "inv_ac_out", "label": "220V AC out (to pole 4 top)", "kind": "ac" }
       ],
       "voltage_nominal": "220V AC out",
       "notes": "The SSI 104's built-in MPPT solar input is not connected — all PV goes to the Renogy Rover 40 controller. Do not wire PV to the SSI 104 solar input without reconfiguring the system.",
       "position_hint": "bottom-left"
-    },
-
-    "ac_loads": {
-      "id": "ac_loads",
-      "label": "AC Loads (sockets / appliances)",
-      "type": "ac_load_bus",
-      "model": null,
-      "description": "220V AC distribution point for van sockets and other AC appliances. Fed from pole 4 bottom (L from p4_bot_l, N+PE from p4_bot_r).",
-      "terminals": [
-        { "id": "loads_l", "label": "L in", "kind": "ac" },
-        { "id": "loads_n_pe", "label": "N + PE in", "kind": "ac" }
-      ],
-      "voltage_nominal": "220V AC",
-      "position_hint": "right-center"
     }
   },
 
@@ -179,8 +164,7 @@
       "pole_4": "ABB SN201L C10 (10A AC breaker)"
     },
     "inverter": "ECTIVE SSI 10 24V (SSI 104)",
-    "shore": null,
-    "ac_loads": null
+    "shore": null
   },
 
   "connections": [
@@ -268,49 +252,31 @@
     },
 
     {
-      "id": "shore_l_to_inverter",
-      "subsystem": "ac",
-      "from": { "component": "shore", "terminal": "shore_l" },
-      "to": { "component": "inverter", "terminal": "inv_ac_in" },
-      "color": "orange",
-      "verified": false,
-      "description": "Shore L (brown) feeds the SSI 104 shore/NVS AC input directly. The SSI 104 handles source selection internally — shore does not reach pole 4 directly."
-    },
-    {
-      "id": "shore_n_pe_to_inverter",
-      "subsystem": "ac",
-      "from": { "component": "shore", "terminal": "shore_n_pe" },
-      "to": { "component": "inverter", "terminal": "inv_ac_in" },
-      "color": "orange",
-      "verified": false,
-      "description": "Shore N + PE feeds the SSI 104 shore/NVS AC input (neutral and protective earth). Modelled on the same inv_ac_shore_in terminal as the line conductor for graph simplicity."
-    },
-    {
       "id": "inverter_ac_to_breaker",
       "subsystem": "ac",
       "from": { "component": "inverter", "terminal": "inv_ac_out" },
       "to": { "component": "circuit_breaker", "terminal": "p4_top_l" },
       "color": "orange",
       "verified": true,
-      "description": "SSI 104 AC output (inverter mode or shore pass-through, after internal NVS selection) feeds the TOP of pole 4. Cable splits into four conductors: black + brown on p4_top_l, green/yellow + gray on p4_top_r. The `to` terminal is recorded as p4_top_l for graph purposes; the second pair lands on p4_top_r (see placeholder_terminals)."
+      "description": "SSI 104 220V AC output feeds the TOP of pole 4. Cable splits into four conductors: black + brown on p4_top_l, green/yellow + gray on p4_top_r. The `to` terminal is recorded as p4_top_l for graph purposes; the second pair lands on p4_top_r (see placeholder_terminals)."
     },
     {
-      "id": "breaker_to_ac_loads_l",
+      "id": "breaker_to_shore_l",
       "subsystem": "ac",
       "from": { "component": "circuit_breaker", "terminal": "p4_bot_l" },
-      "to": { "component": "ac_loads", "terminal": "loads_l" },
+      "to": { "component": "shore", "terminal": "shore_l" },
       "color": "orange",
       "verified": false,
-      "description": "Pole 4 bottom-left (2x brown) to AC loads line (L). One of the two brown conductors feeds van sockets and appliances."
+      "description": "Pole 4 bottom-left (2x brown — brown, white, black) to the van's 220V socket/shore-L. When the inverter is running, this is the AC output to the sockets. When plugged into campsite mains, current flows the reverse direction into the inverter for battery charging."
     },
     {
-      "id": "breaker_to_ac_loads_n_pe",
+      "id": "breaker_to_shore_n_pe",
       "subsystem": "ac",
       "from": { "component": "circuit_breaker", "terminal": "p4_bot_r" },
-      "to": { "component": "ac_loads", "terminal": "loads_n_pe" },
+      "to": { "component": "shore", "terminal": "shore_n_pe" },
       "color": "orange",
       "verified": false,
-      "description": "Pole 4 bottom-right (2x white + blue) to AC loads neutral + PE."
+      "description": "Pole 4 bottom-right (blue) to the van's 220V socket/shore N+PE."
     }
   ],
 
@@ -336,8 +302,8 @@
       "label": "AC 220V",
       "color": "orange",
       "voltage": "220V AC",
-      "description": "Shore inlet feeds the SSI 104 AC input directly; the SSI 104 selects shore or inverter internally (NVS, <16ms) and outputs a single AC feed to pole 4 top. Pole 4 is a protection/isolation breaker only — not a transfer switch. AC loads are downstream of pole 4 bottom.",
-      "current_flow": "Shore: shore inlet → SSI 104 AC in → (NVS selects) → SSI 104 AC out → pole 4 top → pole 4 bottom → AC loads. Battery: battery → SSI 104 DC in → SSI 104 AC out → pole 4 top → pole 4 bottom → AC loads."
+      "description": "Inverter (SSI 104) outputs 220V AC to the TOP of pole 4; the van's 220V sockets/shore connectors are fed from the BOTTOM of pole 4. Pole 4 is protection/isolation only. When plugged into campsite mains, current flows the reverse direction (shore → pole 4 bottom → pole 4 top → inverter AC in for battery charging).",
+      "current_flow": "On battery: battery → SSI 104 DC in → SSI 104 AC out → pole 4 top → pole 4 bottom → van sockets/shore. On shore: campsite mains → shore connectors → pole 4 bottom → pole 4 top → SSI 104 AC in (charging battery and/or passing through)."
     }
   },
 
@@ -438,7 +404,7 @@
       "suspected_connections": [],
       "next_steps_recommended": [
         "Identify the fridge model and confirm whether it is DC (12/24V) or AC (220V).",
-        "If AC: trace the dangling cable at pole 4 bottom-right (p4_bot_r) back to the fridge's plug/junction box, terminate it on the correct AC bus side, and resolve q_pole4_topology before energising.",
+        "If AC: trace the dangling cable at pole 4 bottom-right (p4_bot_r) back to the fridge's plug/junction box and terminate it on the AC bus (p4_bot_r carries N+PE from the inverter output).",
         "Until terminated, cap the exposed conductor end to prevent shorts inside the panel.",
         "Add the eventual connection to schema.json once landed (and remove the placeholder_terminals entry for p4_bot_r)."
       ],
@@ -450,15 +416,15 @@
     {
       "id": "q_pole4_topology",
       "resolved": true,
-      "question": "Pole 4 direction is known: inverter output feeds the TOP (split into 4 conductors — black + brown on top-left, green/yellow + gray on top-right); shore inlet and AC loads share the BOTTOM (2x brown at p4_bot_l = shore L + load L; 2x white + blue at p4_bot_r = shore N + load N + PE). Shore-vs-inverter changeover is handled internally by the ECTIVE SSI 104 NVS circuit with <16ms switchover — pole 4 is a simple breaker carrying both sources, not a transfer switch.",
-      "resolution": "The ECTIVE SSI 104 is a 4-in-1 NVS/UPS device. Transfer between shore and inverter happens inside the unit; no external changeover switch is required or present.",
-      "affects": ["shore_l_to_inverter", "shore_n_pe_to_inverter", "inverter_ac_to_breaker"]
+      "question": "Pole 4 direction and wiring: what enters the top vs. the bottom, and how does shore/inverter transfer work?",
+      "resolution": "Inverter 220V AC output enters the TOP of pole 4 (splits into 4 conductors: black + brown on p4_top_l, green/yellow + gray on p4_top_r). Van 220V sockets/shore connectors are wired at the BOTTOM (brown/white/black at p4_bot_l, blue at p4_bot_r). Pole 4 is a simple isolation breaker, not a transfer switch. The SSI 104 NVS AC input is not wired in this installation.",
+      "affects": ["inverter_ac_to_breaker", "breaker_to_shore_l", "breaker_to_shore_n_pe"]
     },
     {
       "id": "q_ac_loads",
       "resolved": true,
       "question": "Where do the AC loads (sockets, lights, etc.) connect?",
-      "resolution": "AC loads connect from pole 4 bottom: L from p4_bot_l (2x brown — one is SSI 104 output after pole 4, the other goes to loads), N + PE from p4_bot_r (2x white + blue). Pole 4 is protection/isolation only; the SSI 104 AC output enters pole 4 top and exits pole 4 bottom to the loads.",
+      "resolution": "The van's 220V sockets (which also serve as the shore-power connectors) are wired directly to pole 4 bottom: L at p4_bot_l (brown/white/black conductors), N+PE at p4_bot_r (blue). These are modelled as the 'shore' component.",
       "affects": []
     },
     {
