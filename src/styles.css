@@ -90,7 +90,7 @@ a:hover { text-decoration-color: var(--accent); }
 }
 
 .subtitle {
-  max-width: 70ch;
+  max-width: 90ch;
   color: var(--ink-soft);
   margin: 0;
   font-size: 15px;
@@ -216,7 +216,7 @@ a:hover { text-decoration-color: var(--accent); }
 
 .terminal-label {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 14px;
   fill: var(--ink-soft);
 }
 
@@ -353,7 +353,7 @@ code {
 /* INFO PANELS */
 .info-panels {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 24px;
   margin-bottom: 48px;
 }
@@ -388,7 +388,7 @@ code {
   margin: 0 0 6px;
   font-family: var(--font-body);
   font-weight: 600;
-  font-size: 14px;
+  font-size: 20px;
   text-transform: none;
   letter-spacing: 0;
   color: var(--ink);
@@ -396,21 +396,19 @@ code {
 
 .issue p, .question p {
   margin: 4px 0;
-  font-size: 14px;
+  font-size: 18px;
   line-height: 1.5;
 }
 
 .issue {
-  cursor: pointer;
   padding: 12px 8px;
   margin: 0 -8px;
   border-radius: 6px;
   transition: background 0.15s;
-}
-.issue:hover, .issue.active {
-  background: var(--bg-deep);
+  max-width: 90ch;
 }
 .issue.active {
+  background: var(--bg-deep);
   outline: 1px solid var(--accent);
   outline-offset: -1px;
 }
@@ -429,7 +427,7 @@ code {
 .issue ul {
   margin: 4px 0 0;
   padding-left: 18px;
-  font-size: 13px;
+  font-size: 18px;
   line-height: 1.5;
 }
 .hypothesis {
@@ -438,14 +436,14 @@ code {
   padding: 8px 10px;
   border-radius: 0 4px 4px 0;
   margin-top: 4px;
-  font-size: 13px;
+  font-size: 18px;
 }
 .hypothesis.alt {
   border-left-color: var(--border-strong);
 }
 .hypothesis .why {
   color: var(--ink-muted);
-  font-size: 12px;
+  font-size: 15px;
   margin-top: 4px;
 }
 
