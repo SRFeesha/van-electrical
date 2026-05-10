@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import {
   CANVAS,
   components as layoutComponents,
@@ -9,8 +9,6 @@ import {
 } from './layout'
 
 // --- URL hash <-> selection state ----------------------------------------
-// Hash format: #connection=<id> | #component=<id> | #subsystem=<id> | #issue=<id>
-// Round-trip so any view is shareable as a deep link.
 const KIND_KEYS = ['connection', 'component', 'subsystem', 'issue']
 
 function parseHash(hash) {
@@ -25,9 +23,24 @@ function parseHash(hash) {
 function writeHash(sel) {
   const next = sel ? `#${sel.kind}=${encodeURIComponent(sel.id)}` : ''
   if (window.location.hash === next) return
-  // replaceState avoids polluting back-button history while still updating the URL.
   history.replaceState(null, '', next || window.location.pathname + window.location.search)
 }
+
+// --- Layout editor helpers -----------------------------------------------
+// Parse "M x y L x y L x y" → [[x,y], [x,y], [x,y]]
+function parsePath(d) {
+  return d.trim()
+    .replace(/^M\s+/, '')
+    .split(/\s+L\s+/)
+    .map(seg => seg.trim().split(/\s+/).map(Number))
+}
+
+// [[x,y], ...] → "M x y L x y ..."
+function serializePath(points) {
+  return points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]} ${p[1]}`).join(' ')
+}
+
+// -------------------------------------------------------------------------
 
 export default function App() {
   const [schema, setSchema] = useState(null)
@@ -36,13 +49,11 @@ export default function App() {
   const [locked, setLocked] = useState(() => parseHash(window.location.hash))
   const [filter, setFilter] = useState('all')
   const [diagMode, setDiagMode] = useState(false)
+  const [editMode, setEditMode] = useState(false)
+  const [editPaths, setEditPaths] = useState(null)
+  const [copyFeedback, setCopyFeedback] = useState(false)
 
   useEffect(() => {
-    // Prefer the schema inlined into index.html by the Vite build plugin —
-    // saves a round-trip and means the page works without a second request.
-    // Fall back to fetching /schema.json when running in dev (the inlined
-    // data may be the placeholder string before HMR catches up) or if the
-    // tag has been removed.
     const inline = document.getElementById('van-schema-data')?.textContent?.trim()
     if (inline && inline !== '__SCHEMA_INLINE__') {
       try {
@@ -61,34 +72,22 @@ export default function App() {
       .catch((e) => setError(e.message))
   }, [])
 
-  // Sync locked selection -> hash, and react to hash changes (back/forward, manual edits).
-  useEffect(() => {
-    writeHash(locked)
-  }, [locked])
+  useEffect(() => { writeHash(locked) }, [locked])
 
   useEffect(() => {
-    const onHash = () => {
-      const next = parseHash(window.location.hash)
-      setLocked(next)
-    }
+    const onHash = () => setLocked(parseHash(window.location.hash))
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
 
   const active = locked || hovered
 
-  // The active known_issue (if any), used by hover-on-issue and by diagnostics mode.
   const activeIssue = useMemo(() => {
     if (!schema) return null
-    if (active?.kind === 'issue') {
-      return schema.known_issues.find((i) => i.id === active.id) || null
-    }
+    if (active?.kind === 'issue') return schema.known_issues.find((i) => i.id === active.id) || null
     return null
   }, [schema, active])
 
-  // In diagnostics mode we always render the *first* known issue's suspected
-  // connections in the accent color, regardless of hover. The toggle is a
-  // "explain the failure path" view, not a hover state.
   const diagIssue = useMemo(() => {
     if (!schema || !diagMode) return null
     return schema.known_issues[0] || null
@@ -108,69 +107,60 @@ export default function App() {
     return set
   }, [activeIssue, diagIssue])
 
-  // Per-connection visual state ("normal" | "highlight" | "dim" | "diagnostic")
   const connectionState = useMemo(() => {
     if (!schema) return {}
     const state = {}
     for (const c of schema.connections) {
       let s = 'normal'
-
-      // Filter chip: dim subsystems that don't match.
       if (filter !== 'all' && c.subsystem !== filter) s = 'dim'
-
       if (active) {
         if (active.kind === 'connection' && active.id === c.id) s = 'highlight'
         else if (active.kind === 'subsystem' && active.id === c.subsystem) s = 'highlight'
-        else if (
-          active.kind === 'component' &&
-          (c.from.component === active.id || c.to.component === active.id)
-        ) {
-          s = 'highlight'
-        } else if (active.kind === 'issue' && suspectedConnSet.has(c.id)) {
-          s = 'highlight'
-        } else {
-          s = 'dim'
-        }
+        else if (active.kind === 'component' && (c.from.component === active.id || c.to.component === active.id)) s = 'highlight'
+        else if (active.kind === 'issue' && suspectedConnSet.has(c.id)) s = 'highlight'
+        else s = 'dim'
       }
-
-      // Diagnostics mode wins over the filter dim, but loses to active highlight.
       if (diagMode) {
         if (suspectedConnSet.has(c.id)) s = 'diagnostic'
         else if (s === 'normal') s = 'dim'
       }
-
       state[c.id] = s
     }
     return state
   }, [schema, active, filter, diagMode, suspectedConnSet])
 
-  if (error) {
-    return (
-      <div className="error">
-        <h1>Failed to load schema</h1>
-        <p>{error}</p>
-      </div>
-    )
-  }
-
-  if (!schema) {
-    return <div className="loading">Loading schema…</div>
-  }
-
-  const handleEnter = (kind, id) => {
-    if (locked) return
-    setHovered({ kind, id })
-  }
-  const handleLeave = () => {
-    if (locked) return
-    setHovered(null)
-  }
-  const handleClick = (kind, id) => {
-    if (locked && locked.kind === kind && locked.id === id) {
+  const handleToggleEdit = () => {
+    if (!editMode) {
+      const parsed = {}
+      for (const [id, d] of Object.entries(wirePaths)) {
+        parsed[id] = parsePath(d)
+      }
+      setEditPaths(parsed)
+      setDiagMode(false)
       setLocked(null)
-    } else {
-      setLocked({ kind, id })
+      setHovered(null)
     }
+    setEditMode(m => !m)
+  }
+
+  const handleCopyPaths = () => {
+    const lines = Object.entries(editPaths).map(([id, pts]) => `  ${id}: \`${serializePath(pts)}\`,`)
+    const output = `export const wirePaths = {\n${lines.join('\n')}\n}`
+    navigator.clipboard.writeText(output).then(() => {
+      setCopyFeedback(true)
+      setTimeout(() => setCopyFeedback(false), 2000)
+    })
+  }
+
+  if (error) return <div className="error"><h1>Failed to load schema</h1><p>{error}</p></div>
+  if (!schema) return <div className="loading">Loading schema…</div>
+
+  const handleEnter = (kind, id) => { if (!locked && !editMode) setHovered({ kind, id }) }
+  const handleLeave = () => { if (!locked && !editMode) setHovered(null) }
+  const handleClick = (kind, id) => {
+    if (editMode) return
+    if (locked && locked.kind === kind && locked.id === id) setLocked(null)
+    else setLocked({ kind, id })
   }
 
   return (
@@ -191,9 +181,7 @@ export default function App() {
       <section className="controls">
         <div className="filter-row">
           <span className="filter-label">Filter:</span>
-          <Chip active={filter === 'all'} onClick={() => setFilter('all')}>
-            All
-          </Chip>
+          <Chip active={filter === 'all'} onClick={() => setFilter('all')}>All</Chip>
           {Object.values(schema.subsystems).map((s) => (
             <Chip
               key={s.id}
@@ -204,12 +192,10 @@ export default function App() {
               {s.label}
             </Chip>
           ))}
-          {locked && (
-            <button className="chip clear" onClick={() => setLocked(null)}>
-              ✕ unlock selection
-            </button>
+          {locked && !editMode && (
+            <button className="chip clear" onClick={() => setLocked(null)}>✕ unlock selection</button>
           )}
-          {schema.known_issues.length > 0 && (
+          {schema.known_issues.length > 0 && !editMode && (
             <button
               className={`diag-toggle ${diagMode ? 'active' : ''}`}
               onClick={() => setDiagMode((m) => !m)}
@@ -219,9 +205,23 @@ export default function App() {
               {diagMode ? 'Diagnostic mode on' : 'Show failure path'}
             </button>
           )}
+          <button
+            className={`chip ${editMode ? 'active' : ''}`}
+            style={editMode ? { borderColor: '#888', color: '#888' } : undefined}
+            onClick={handleToggleEdit}
+          >
+            {editMode ? '✕ Exit edit mode' : 'Edit layout'}
+          </button>
+          {editMode && (
+            <button className="chip" onClick={handleCopyPaths}>
+              {copyFeedback ? '✓ Copied!' : 'Copy wirePaths'}
+            </button>
+          )}
         </div>
         <p className="hint">
-          Hover a wire, component, or issue to isolate · Click to lock · Selection syncs to URL
+          {editMode
+            ? 'Drag the white dots to reroute wires · Click "Copy wirePaths" then paste into layout.js'
+            : 'Hover a wire, component, or issue to isolate · Click to lock · Selection syncs to URL'}
         </p>
       </section>
 
@@ -236,37 +236,41 @@ export default function App() {
             onEnter={handleEnter}
             onLeave={handleLeave}
             onClick={handleClick}
+            editMode={editMode}
+            editPaths={editPaths}
+            onPathsChange={setEditPaths}
           />
         </div>
-
-        <aside className="sidebar">
-          <DetailPanel active={active} schema={schema} />
-        </aside>
+        {!editMode && (
+          <aside className="sidebar">
+            <DetailPanel active={active} schema={schema} />
+          </aside>
+        )}
       </div>
 
-      <section className="info-panels">
-        <div className="panel">
-          <h2>Known issues</h2>
-          {schema.known_issues.length === 0 && <p className="muted">None recorded.</p>}
-          {schema.known_issues.map((iss) => (
-            <IssueCard
-              key={iss.id}
-              issue={iss}
-              schema={schema}
-              isActive={active?.kind === 'issue' && active.id === iss.id}
-              onEnter={() => handleEnter('issue', iss.id)}
-              onLeave={handleLeave}
-              onClick={() => handleClick('issue', iss.id)}
-            />
-          ))}
-        </div>
-
-      </section>
+      {!editMode && (
+        <section className="info-panels">
+          <div className="panel">
+            <h2>Known issues</h2>
+            {schema.known_issues.length === 0 && <p className="muted">None recorded.</p>}
+            {schema.known_issues.map((iss) => (
+              <IssueCard
+                key={iss.id}
+                issue={iss}
+                schema={schema}
+                isActive={active?.kind === 'issue' && active.id === iss.id}
+                onEnter={() => handleEnter('issue', iss.id)}
+                onLeave={handleLeave}
+                onClick={() => handleClick('issue', iss.id)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       <footer className="footer">
         <p>
-          Machine-readable data: <a href="./schema.json">/schema.json</a> · Updated{' '}
-          {schema.updated}
+          Machine-readable data: <a href="./schema.json">/schema.json</a> · Updated {schema.updated}
         </p>
       </footer>
     </div>
@@ -295,8 +299,44 @@ function Schematic({
   onEnter,
   onLeave,
   onClick,
+  editMode,
+  editPaths,
+  onPathsChange,
 }) {
+  const svgRef = useRef(null)
+  const draggingRef = useRef(null) // { wireId, idx }
+
+  // Convert screen coords to SVG user-space, snapped to 5px grid.
+  const toSvgCoords = (clientX, clientY) => {
+    const svg = svgRef.current
+    if (!svg) return [0, 0]
+    const pt = svg.createSVGPoint()
+    pt.x = clientX
+    pt.y = clientY
+    const { x, y } = pt.matrixTransform(svg.getScreenCTM().inverse())
+    return [Math.round(x / 5) * 5, Math.round(y / 5) * 5]
+  }
+
+  const handleSvgMouseMove = (e) => {
+    if (!draggingRef.current) return
+    const { wireId, idx } = draggingRef.current
+    const [x, y] = toSvgCoords(e.clientX, e.clientY)
+    onPathsChange(prev => ({
+      ...prev,
+      [wireId]: prev[wireId].map((p, i) => i === idx ? [x, y] : p),
+    }))
+  }
+
+  // Also catch mouseup globally so drag ends even if cursor leaves the SVG.
+  useEffect(() => {
+    if (!editMode) return
+    const onUp = () => { draggingRef.current = null }
+    window.addEventListener('mouseup', onUp)
+    return () => window.removeEventListener('mouseup', onUp)
+  }, [editMode])
+
   const componentDimmed = (id) => {
+    if (editMode) return false
     if (diagMode && !suspectedCompSet.has(id) && !active) return true
     if (!active) return false
     if (active.kind === 'component') return active.id !== id
@@ -307,36 +347,38 @@ function Schematic({
     if (active.kind === 'subsystem') {
       const touched = new Set()
       schema.connections.forEach((c) => {
-        if (c.subsystem === active.id) {
-          touched.add(c.from.component)
-          touched.add(c.to.component)
-        }
+        if (c.subsystem === active.id) { touched.add(c.from.component); touched.add(c.to.component) }
       })
       return !touched.has(id)
     }
-    if (active.kind === 'issue') {
-      return !suspectedCompSet.has(id)
-    }
+    if (active.kind === 'issue') return !suspectedCompSet.has(id)
     return false
   }
 
   const componentSuspected = (id) => suspectedCompSet.has(id) && (diagMode || active?.kind === 'issue')
 
+  // Build a wireId → subsystem color map for use in edit overlay.
+  const wireColor = useMemo(() => {
+    const map = {}
+    for (const c of schema.connections) {
+      map[c.id] = subsystemColors[c.subsystem] || '#666'
+    }
+    return map
+  }, [schema])
+
   return (
     <svg
+      ref={svgRef}
       viewBox={`0 0 ${CANVAS.w} ${CANVAS.h}`}
       className="schematic"
       role="img"
       aria-label="Interactive electrical schematic"
+      onMouseMove={editMode ? handleSvgMouseMove : undefined}
+      style={editMode ? { cursor: 'crosshair' } : undefined}
     >
       <defs>
         <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-          <path
-            d="M 40 0 L 0 0 0 40"
-            fill="none"
-            stroke="rgba(0,0,0,0.04)"
-            strokeWidth="1"
-          />
+          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(0,0,0,0.04)" strokeWidth="1" />
         </pattern>
       </defs>
       <rect width={CANVAS.w} height={CANVAS.h} fill="url(#grid)" />
@@ -347,7 +389,7 @@ function Schematic({
           id={id}
           box={c}
           dim={componentDimmed(id)}
-          highlighted={active?.kind === 'component' && active.id === id}
+          highlighted={!editMode && active?.kind === 'component' && active.id === id}
           suspected={componentSuspected(id)}
           onEnter={() => onEnter('component', id)}
           onLeave={onLeave}
@@ -358,35 +400,26 @@ function Schematic({
       {breakerPoles.map((p, i) => (
         <g key={p.id} className="pole">
           <rect
-            x={p.x}
-            y={p.y}
-            width={p.w}
-            height={p.h}
+            x={p.x} y={p.y} width={p.w} height={p.h}
             fill="rgba(255,255,255,0.6)"
             stroke="rgba(40,38,36,0.25)"
             strokeWidth="1"
             rx="4"
           />
-          <text
-            x={p.x + p.w / 2}
-            y={p.y + p.h / 2 + 4}
-            textAnchor="middle"
-            className="pole-num"
-          >
+          <text x={p.x + p.w / 2} y={p.y + p.h / 2 + 4} textAnchor="middle" className="pole-num">
             {i + 1}
           </text>
         </g>
       ))}
 
       {schema.connections.map((conn) => {
-        const path = wirePaths[conn.id]
+        const pathPoints = editMode && editPaths ? editPaths[conn.id] : null
+        const path = pathPoints ? serializePath(pathPoints) : wirePaths[conn.id]
         if (!path) return null
         const state = connectionState[conn.id] || 'normal'
         const baseColor = subsystemColors[conn.subsystem] || '#666'
-        // Accent matches --accent in styles.css. Hardcoded because SVG stroke
-        // attributes don't reliably resolve CSS custom properties in all browsers.
         const color = state === 'diagnostic' ? '#b34728' : baseColor
-        const isHover = active?.kind === 'connection' && active.id === conn.id
+        const isHover = !editMode && active?.kind === 'connection' && active.id === conn.id
         return (
           <g key={conn.id} className={`wire wire-${state}`}>
             <path
@@ -394,10 +427,10 @@ function Schematic({
               stroke="transparent"
               strokeWidth="20"
               fill="none"
-              style={{ cursor: 'pointer' }}
-              onMouseEnter={() => onEnter('connection', conn.id)}
-              onMouseLeave={onLeave}
-              onClick={() => onClick('connection', conn.id)}
+              style={{ cursor: editMode ? 'default' : 'pointer' }}
+              onMouseEnter={editMode ? undefined : () => onEnter('connection', conn.id)}
+              onMouseLeave={editMode ? undefined : onLeave}
+              onClick={editMode ? undefined : () => onClick('connection', conn.id)}
             />
             <path
               d={path}
@@ -406,7 +439,7 @@ function Schematic({
               strokeLinecap="round"
               strokeLinejoin="round"
               fill="none"
-              opacity={state === 'dim' ? 0.12 : 1}
+              opacity={!editMode && state === 'dim' ? 0.12 : 1}
               strokeDasharray={conn.verified === false ? '6 4' : 'none'}
             />
           </g>
@@ -416,11 +449,30 @@ function Schematic({
       {Object.entries(terminals).map(([id, t]) => (
         <g key={id} className="terminal">
           <circle cx={t.x} cy={t.y} r="4" fill="#1a1817" />
-          <text x={t.x + 8} y={t.y + 3} className="terminal-label">
-            {t.label}
-          </text>
+          <text x={t.x + 8} y={t.y + 3} className="terminal-label">{t.label}</text>
         </g>
       ))}
+
+      {/* Edit mode overlay: draggable waypoint dots */}
+      {editMode && editPaths && Object.entries(editPaths).map(([wireId, points]) =>
+        points.map((p, idx) => (
+          <circle
+            key={`${wireId}-${idx}`}
+            cx={p[0]}
+            cy={p[1]}
+            r={7}
+            fill="white"
+            stroke={wireColor[wireId] || '#444'}
+            strokeWidth={2.5}
+            style={{ cursor: 'grab', userSelect: 'none' }}
+            onMouseDown={(e) => {
+              e.stopPropagation()
+              e.preventDefault()
+              draggingRef.current = { wireId, idx }
+            }}
+          />
+        ))
+      )}
     </svg>
   )
 }
@@ -439,26 +491,9 @@ function ComponentBox({ id, box, dim, highlighted, suspected, onEnter, onLeave, 
   const strokeWidth = suspected ? 2.5 : highlighted ? 2.5 : 1.2
 
   return (
-    <g
-      onMouseEnter={onEnter}
-      onMouseLeave={onLeave}
-      onClick={onClick}
-      style={{ cursor: 'pointer' }}
-      opacity={dim ? 0.25 : 1}
-    >
-      <rect
-        x={box.x}
-        y={box.y}
-        width={box.w}
-        height={box.h}
-        fill={palette.fill}
-        stroke={stroke}
-        strokeWidth={strokeWidth}
-        rx="6"
-      />
-      <text x={box.x + 12} y={box.y + 22} className="component-label">
-        {box.label}
-      </text>
+    <g onMouseEnter={onEnter} onMouseLeave={onLeave} onClick={onClick} style={{ cursor: 'pointer' }} opacity={dim ? 0.25 : 1}>
+      <rect x={box.x} y={box.y} width={box.w} height={box.h} fill={palette.fill} stroke={stroke} strokeWidth={strokeWidth} rx="6" />
+      <text x={box.x + 12} y={box.y + 22} className="component-label">{box.label}</text>
     </g>
   )
 }
@@ -476,22 +511,14 @@ function IssueCard({ issue, schema, isActive, onEnter, onLeave, onClick }) {
       {issue.symptoms?.length > 0 && (
         <div className="issue-section">
           <p className="issue-section-label">Symptoms</p>
-          <ul>
-            {issue.symptoms.map((s, i) => (
-              <li key={i}>{s}</li>
-            ))}
-          </ul>
+          <ul>{issue.symptoms.map((s, i) => <li key={i}>{s}</li>)}</ul>
         </div>
       )}
 
       {issue.diagnostic_findings?.length > 0 && (
         <div className="issue-section">
           <p className="issue-section-label">Diagnostic findings</p>
-          <ul>
-            {issue.diagnostic_findings.map((f, i) => (
-              <li key={i}>{f}</li>
-            ))}
-          </ul>
+          <ul>{issue.diagnostic_findings.map((f, i) => <li key={i}>{f}</li>)}</ul>
         </div>
       )}
 
@@ -500,9 +527,7 @@ function IssueCard({ issue, schema, isActive, onEnter, onLeave, onClick }) {
           <p className="issue-section-label">Leading hypothesis</p>
           <div className="hypothesis">
             <div>{issue.leading_hypothesis.description}</div>
-            {issue.leading_hypothesis.reasoning && (
-              <div className="why">{issue.leading_hypothesis.reasoning}</div>
-            )}
+            {issue.leading_hypothesis.reasoning && <div className="why">{issue.leading_hypothesis.reasoning}</div>}
           </div>
         </div>
       )}
@@ -539,11 +564,7 @@ function IssueCard({ issue, schema, isActive, onEnter, onLeave, onClick }) {
       {issue.next_steps_recommended?.length > 0 && (
         <div className="issue-section">
           <p className="issue-section-label">Next steps</p>
-          <ul>
-            {issue.next_steps_recommended.map((s, i) => (
-              <li key={i}>{s}</li>
-            ))}
-          </ul>
+          <ul>{issue.next_steps_recommended.map((s, i) => <li key={i}>{s}</li>)}</ul>
         </div>
       )}
 
@@ -557,9 +578,7 @@ function DetailPanel({ active, schema }) {
     return (
       <div className="detail-empty">
         <h2>Details</h2>
-        <p className="muted">
-          Hover or click any wire, component, issue, or subsystem to see details here.
-        </p>
+        <p className="muted">Hover or click any wire, component, issue, or subsystem to see details here.</p>
         <h3>Subsystems</h3>
         <ul className="subsystem-list">
           {Object.values(schema.subsystems).map((s) => (
@@ -573,23 +592,11 @@ function DetailPanel({ active, schema }) {
         <h3>Legend</h3>
         <ul className="legend">
           <li>
-            <svg width="40" height="10">
-              <line x1="0" y1="5" x2="40" y2="5" stroke="#666" strokeWidth="3" />
-            </svg>
+            <svg width="40" height="10"><line x1="0" y1="5" x2="40" y2="5" stroke="#666" strokeWidth="3" /></svg>
             verified wire
           </li>
           <li>
-            <svg width="40" height="10">
-              <line
-                x1="0"
-                y1="5"
-                x2="40"
-                y2="5"
-                stroke="#666"
-                strokeWidth="3"
-                strokeDasharray="6 4"
-              />
-            </svg>
+            <svg width="40" height="10"><line x1="0" y1="5" x2="40" y2="5" stroke="#666" strokeWidth="3" strokeDasharray="6 4" /></svg>
             unverified — to confirm
           </li>
         </ul>
@@ -607,19 +614,13 @@ function DetailPanel({ active, schema }) {
         <span className="kind-tag">Connection</span>
         <h2>{c.id}</h2>
         <div className="kv">
-          <KV label="From">
-            {fromComp.label} · {c.from.terminal}
-          </KV>
-          <KV label="To">
-            {toComp.label} · {c.to.terminal}
-          </KV>
+          <KV label="From">{fromComp.label} · {c.from.terminal}</KV>
+          <KV label="To">{toComp.label} · {c.to.terminal}</KV>
           <KV label="Subsystem">
             <span className="dot" style={{ background: subsystemColors[c.subsystem] }} />
             {schema.subsystems[c.subsystem]?.label}
           </KV>
-          <KV label="Verified">
-            {c.verified ? '✓ yes' : '✗ no — confirm physically'}
-          </KV>
+          <KV label="Verified">{c.verified ? '✓ yes' : '✗ no — confirm physically'}</KV>
         </div>
         <p className="desc">{c.description}</p>
       </div>
@@ -640,21 +641,14 @@ function DetailPanel({ active, schema }) {
         <h3>Terminals</h3>
         <ul className="terminal-list">
           {(c.terminals || []).map((t) => (
-            <li key={t.id}>
-              <code>{t.label}</code>
-              <span className="muted"> · {t.kind || ''}</span>
-            </li>
+            <li key={t.id}><code>{t.label}</code><span className="muted"> · {t.kind || ''}</span></li>
           ))}
         </ul>
         {c.poles && (
           <>
             <h3>Poles</h3>
             <ul className="terminal-list">
-              {c.poles.map((p) => (
-                <li key={p.id}>
-                  <strong>{p.id}:</strong> {p.function}
-                </li>
-              ))}
+              {c.poles.map((p) => <li key={p.id}><strong>{p.id}:</strong> {p.function}</li>)}
             </ul>
           </>
         )}
@@ -662,20 +656,14 @@ function DetailPanel({ active, schema }) {
         {incoming.length === 0 && <p className="muted">None</p>}
         <ul className="wire-list">
           {incoming.map((w) => (
-            <li key={w.id}>
-              <span className="dot" style={{ background: subsystemColors[w.subsystem] }} />
-              {w.id}
-            </li>
+            <li key={w.id}><span className="dot" style={{ background: subsystemColors[w.subsystem] }} />{w.id}</li>
           ))}
         </ul>
         <h3>Outgoing wires</h3>
         {outgoing.length === 0 && <p className="muted">None</p>}
         <ul className="wire-list">
           {outgoing.map((w) => (
-            <li key={w.id}>
-              <span className="dot" style={{ background: subsystemColors[w.subsystem] }} />
-              {w.id}
-            </li>
+            <li key={w.id}><span className="dot" style={{ background: subsystemColors[w.subsystem] }} />{w.id}</li>
           ))}
         </ul>
       </div>
@@ -704,19 +692,12 @@ function DetailPanel({ active, schema }) {
       <div>
         <span className="kind-tag">Issue</span>
         <h2>{iss.summary}</h2>
-        <p className="desc">
-          Hovering this issue highlights its suspected wires and components on the
-          schematic. Toggle "Show failure path" for a persistent diagnostic view.
-        </p>
+        <p className="desc">Hovering this issue highlights its suspected wires and components on the schematic. Toggle "Show failure path" for a persistent diagnostic view.</p>
         {iss.suspected_components?.length > 0 && (
           <>
             <h3>Suspected components</h3>
             <ul className="wire-list">
-              {iss.suspected_components.map((cid) => (
-                <li key={cid}>
-                  <code>{cid}</code>
-                </li>
-              ))}
+              {iss.suspected_components.map((cid) => <li key={cid}><code>{cid}</code></li>)}
             </ul>
           </>
         )}
