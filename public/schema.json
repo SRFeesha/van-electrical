@@ -14,7 +14,8 @@
     "placeholder_terminals": "Terminals drawn in the diagram but whose connections are not yet documented. Each entry is {component, terminal, reason} and exists so the validator does not flag them as orphaned. Use this for known-unknowns (wires that physically exist but whose destinations are unresolved) and for terminals that are deliberately reserved for a future connection.",
     "known_issues": "Currently observed faults. Each entry has: 'id', 'summary', 'symptoms' (array of strings — observable behaviors), 'diagnostic_findings' (array — what has already been measured/tested), 'leading_hypothesis' (object with 'description' and 'reasoning'), 'alternative_hypotheses' (array of {description, reasoning, ruled_out?, evidence?}), 'suspected_components' (array of component IDs), 'suspected_connections' (array of connection IDs), 'evidence' (array of measurement IDs supporting the leading hypothesis), 'next_steps_recommended' (array of strings), and optional 'notes'.",
     "open_questions": "Topology details the human has flagged as uncertain. Treat as unresolved unless verified.",
-    "measurements": "Time-ordered log of physical measurements. Each entry has 'kind' ('multimeter' | 'controller_display'), 'id', 'date', and a quantity/reading. Multimeter entries reference component terminals via probes.{red,black}.{component,terminal}, or the literal string 'shorted' for meter sanity tests. Controller-display entries record what the controller's own LCD reported on a given screen. known_issues[].evidence and known_issues[].alternative_hypotheses[].evidence reference these IDs."
+    "measurements": "Time-ordered log of physical measurements. Each entry has 'kind' ('multimeter' | 'controller_display'), 'id', 'date', and a quantity/reading. Multimeter entries reference component terminals via probes.{red,black}.{component,terminal}, or the literal string 'shorted' for meter sanity tests. Controller-display entries record what the controller's own LCD reported on a given screen. known_issues[].evidence and known_issues[].alternative_hypotheses[].evidence reference these IDs.",
+    "components_models": "Known hardware model/part numbers for each component. Keys mirror component IDs. For circuit_breaker, sub-keys are pole IDs. Null means the model is unknown."
   },
 
   "components": {
@@ -140,6 +141,20 @@
       "voltage_nominal": "220V AC out",
       "position_hint": "bottom-left"
     }
+  },
+
+  "components_models": {
+    "photovoltaic": null,
+    "controller": "Renogy Rover 40 (MPPT)",
+    "battery": "Renogy RBT24100LFP",
+    "circuit_breaker": {
+      "pole_1": "ABB E91hN/32 (fuse holder, 32A, 400V, 10.3×38mm)",
+      "pole_2": "ABB E91hN/32 (fuse holder, 32A, 400V, 10.3×38mm)",
+      "pole_3": "ABB E91hN/32 (fuse holder, 32A, 400V, 10.3×38mm)",
+      "pole_4": "ABB SN201L C10 (10A AC breaker)"
+    },
+    "inverter": null,
+    "shore": null
   },
 
   "connections": [
@@ -308,87 +323,87 @@
   "known_issues": [
     {
       "id": "renogy_rover_acr_e1",
-      "summary": "Renogy Rover 40 MPPT controller stuck in ACr + E1 (battery under-voltage) — controller's voltage sense is reading wrong",
+      "summary": "Renogy Rover 40 MPPT controller stuck in ACr + E1 (battery under-voltage) — BMS deep-discharge protection likely triggered; controller's ~11V reading may be accurate",
       "symptoms": [
         "Controller display shows 'ACr' indicator together with error code 'E1'.",
         "Charging does not proceed even with measured PV voltage on the panels.",
         "Fault persists across power cycles (disconnect/reconnect of PV and BAT)."
       ],
       "diagnostic_findings": [
-        "Multimeter at the battery terminals reads ~29 V — a healthy fully-charged voltage for the 24 V (8S) LiFePO4 pack.",
-        "Renogy controller display reads ~11 V on the same battery at the same moment — i.e. roughly 18 V below reality.",
-        "The discrepancy between meter and display is the central evidence: the battery is fine; the controller's internal voltage measurement is wrong.",
+        "Battery posts read 0V immediately after the BAT fuse was cycled quickly — the BMS (Renogy RBT24100LFP) entered deep-discharge protection and cut its output (M2).",
+        "Voltage at the battery posts snapped to 30V the instant PV was reconnected — characteristic of PV back-feeding through the controller's internal circuitry rather than the battery independently recovering (M3).",
+        "With PV connected and the BMS apparently recovered, battery posts and controller BAT terminals both read ~29-30V (M1, M4, M5, M6).",
+        "Controller display reads ~11V while multimeter shows ~29V — this discrepancy may reflect the BMS-cut state the controller saw when E1 was first triggered, now latched in the controller.",
         "BAT+ and BAT- polarity at the controller terminal block visually matches the controller's labelling.",
         "PV input present at controller PV+/PV- when sun is on the panels.",
-        "E1 on the Rover 40 is the battery UNDER-voltage / over-discharge protection code — consistent with the controller's ~11 V reading, even though the actual pack is at ~29 V."
+        "E1 on the Rover 40 is the battery UNDER-voltage / over-discharge protection code — consistent with the BMS having cut output and the controller seeing near-zero or PV-back-fed residual voltage at the time E1 was latched.",
+        "Zero voltage drop across every segment of the BAT+ and BAT- paths (M7-M11) — no wiring fault on either leg."
       ],
-      "evidence": ["M1", "M3", "M4", "M5", "M7", "M8", "M9", "M10", "M11", "M14", "D1", "D2", "D3", "D6", "D10"],
+      "evidence": ["M1", "M2", "M3", "M4", "M5", "M7", "M8", "M9", "M10", "M11", "M14", "D1", "D2", "D3", "D6", "D10"],
       "leading_hypothesis": {
-        "confidence": "very_high",
-        "description": "Hardware failure of the controller's internal battery voltage-sense circuit (or its calibration). The controller is reporting ~11 V while the actual battery is at ~29 V, so it locks itself into E1 (under-voltage) and refuses to charge.",
-        "reasoning": "Direct evidence: M4 reads 29 V at the controller's own BAT+/BAT- terminal screws while D1/D2/D3 show the controller's LCD reporting 10.9-12.7 V on the same battery at the same moment. M7-M11 measure 0 V drop across every link of the BAT+ and BAT- paths, so no wiring resistance can account for the ~18 V gap (and no current is flowing — D7 = 0 A — so even nominal IR drop would be zero). M14/D6 show the PV-sense path reads correctly (40 V at probes, 37.8 V on display), which isolates the fault to the BAT-side analog front-end inside the controller. Meter sanity confirmed in M12. Every alternative below is now ruled out by these measurements."
+        "confidence": "high",
+        "description": "The battery BMS (Renogy RBT24100LFP) triggered deep-discharge protection, cutting its output to 0V. The controller entered E1 at that moment. The controller's ~11V display reading may be accurate — reflecting a PV back-feed residual seen at the BAT terminals while the BMS was disconnected — rather than an internal sensing fault.",
+        "reasoning": "M2 records 0V at the battery posts immediately after BAT fuse cycling — the BMS shut its output. M3 shows voltage snapping to 30V the instant PV was reconnected, consistent with PV back-feeding into the BAT bus through the controller's internal diodes/FETs rather than the battery independently recovering. When the BMS is in protection mode, the controller's BAT terminals see only this back-fed PV residual (possibly ~11V at the relevant insolation level or through a resistive path), so the controller's ~11V reading may be accurate — a real E1 condition at the time of latch. The fault may have persisted as a latched error even after the BMS recovered."
       },
       "alternative_hypotheses": [
         {
+          "description": "Hardware failure of the controller's internal battery voltage-sense circuit (or its calibration). The controller is reporting ~11V while the actual battery is at ~29V, so it locks itself into E1 (under-voltage) and refuses to charge.",
+          "reasoning": "M4 reads 29V at the controller's own BAT+/BAT- terminal screws while D1/D2/D3 show the controller's LCD reporting 10.9-12.7V at the same moment (both with PV connected and BMS apparently recovered). M7-M11 measure 0V drop across every link of the BAT+ and BAT- paths. M14/D6 show the PV-sense path reads correctly (40V at probes, 37.8V on display), which would isolate a fault to the BAT-side analog front-end inside the controller. Not ruled out — would explain the M4-vs-display mismatch if the controller's display readings were captured while the BMS was active.",
+          "ruled_out": false
+        },
+        {
           "description": "Severely high-resistance / open connection on the BAT- sense leg between controller and battery, causing the controller to read a near-open-circuit voltage instead of the battery.",
-          "reasoning": "Originally plausible because controller_bat_neg_to_battery had not been probed under load. M11 measured 0 V drop between battery- and controller BAT- with the system live — the BAT- leg is electrically clean, and the controller is still reporting wrong.",
+          "reasoning": "Originally plausible because controller_bat_neg_to_battery had not been probed under load. M11 measured 0V drop between battery- and controller BAT- with the system live — the BAT- leg is electrically clean.",
           "ruled_out": true,
           "evidence": ["M11"]
         },
         {
           "description": "Fuse pole 1 has degraded to the point that BAT+ is intermittently open at the controller side, and the controller is reading something other than the battery.",
-          "reasoning": "M7, M8, M9 individually and M10 cumulatively measure 0 V drop across the battery-to-controller BAT+ path (including across the fuse itself). The fuse and its wiring are fine.",
+          "reasoning": "M7, M8, M9 individually and M10 cumulatively measure 0V drop across the battery-to-controller BAT+ path (including across the fuse itself). The fuse and its wiring are fine.",
           "ruled_out": true,
           "evidence": ["M7", "M8", "M9", "M10"]
         }
       ],
-      "suspected_components": ["controller", "circuit_breaker"],
+      "suspected_components": ["battery", "controller"],
       "suspected_connections": [
         "controller_bat_pos_to_breaker",
         "breaker_to_battery_pos",
         "controller_bat_neg_to_battery"
       ],
       "next_steps_recommended": [
-        "Measure DC voltage directly between the controller's BAT+ and BAT- terminal screws (probes on the screws, not on the wire ends) — compare to the meter reading at the battery posts. A near-equal reading (~29 V) at the screws while the display still shows ~11 V is conclusive proof of an internal sensing fault.",
-        "If voltage at the controller's terminal screws matches the battery (~29 V), the wiring is fine — proceed straight to a warranty/replacement claim with Renogy. Capture a photo or short video of meter-vs-display showing the discrepancy.",
-        "If voltage at the controller's screws is significantly lower than at the battery, inspect and re-torque BAT+ at fuse pole 1 and BAT- at the controller / battery posts; bypass pole 1 temporarily to rule the fuse holder in or out.",
-        "Until resolved, do not rely on the controller for charging; the battery should not be connected to the controller's BAT terminals while the fault is active because the controller's behaviour is unpredictable."
+        "Attempt BMS wake-up: connect a known-good external 24V charger directly to the battery posts (bypassing the controller entirely) and hold for a few minutes. A BMS in deep-discharge protection should respond to an external source above its recovery threshold.",
+        "After the external charger brings the BMS out of protection, measure battery post voltage (should read ~24-30V) and then attempt a full controller reset: disconnect both PV and BAT inputs simultaneously, wait 30 seconds, reconnect BAT first then PV. Check whether E1 clears.",
+        "If the controller still shows E1 and ~11V on the display after the BMS is confirmed active and wiring measures ~29V at the controller's own BAT terminal screws, the hardware sensing fault hypothesis becomes more likely — proceed to a Renogy warranty or replacement claim. Capture a photo or video of the multimeter (~29V at the BAT screws) alongside the controller display (~11V) as evidence.",
+        "Until resolved, do not rely on the controller for charging. Avoid repeated fast fuse cycling, which can re-trigger BMS protection via inrush current."
       ],
-      "notes": "ACr + E1 on the Rover 40 = battery under-voltage / over-discharge protection. With a measured 29 V at the battery terminals, the controller's claim of 11 V is a sensing failure, not a real battery condition. Do not assume the battery is in trouble. Full audit trail in the top-level 'measurements' field (IDs M1-M16, D1-D10)."
+      "notes": "ACr + E1 on the Rover 40 = battery under-voltage / over-discharge protection. The key new evidence is M2 (0V at battery posts with BMS in protection) and M3 (instant voltage recovery when PV connected, suggesting back-feed rather than real battery recovery). The controller's ~11V reading may be accurate for the moment E1 was triggered. If BMS wake-up does not resolve E1, the internal sensing fault becomes the likely cause. Full audit trail in the top-level 'measurements' field (IDs M1-M16, D1-D10)."
     },
     {
       "id": "fridge_circuit_unconnected",
-      "summary": "Fridge cables are present in the panel but not landed — one set on the controller's LOAD output, one set on AC breaker pole 4",
+      "summary": "Fridge circuit present in the panel but never landed — wiring was never completed during the van build",
       "symptoms": [
         "Fridge has no power.",
-        "Loose cable ends visible inside the panel: one pair near the controller's LOAD+/LOAD- terminals, one pair near AC breaker pole 4 bottom.",
-        "It is unclear from the existing wiring whether the fridge was originally intended to run on DC (off the controller's LOAD output) or on AC (off pole 4 of the breaker)."
+        "Loose cable end visible inside the panel near AC breaker pole 4 bottom-right (p4_bot_r)."
       ],
       "diagnostic_findings": [
-        "controller.ctrl_load_pos and ctrl_load_neg are visibly unconnected at the controller (matches the schema's connected:false flag).",
-        "circuit_breaker pole 4 bottom-right (p4_bot_r, '2x White + Blue') has at least one un-terminated white conductor; see placeholder_terminals."
+        "An un-terminated cable end is visible near pole 4 bottom-right (p4_bot_r, '2x White + Blue') inside the panel.",
+        "The controller LOAD output is not a candidate feed for the fridge — the fridge should not be landed on LOAD while the renogy_rover_acr_e1 fault is active, and the LOAD circuit is reserved for other use."
       ],
       "leading_hypothesis": {
-        "confidence": "medium",
-        "description": "The fridge was wired during the build but never landed because the install was paused or rerouted — leaving two candidate feeds (DC via controller LOAD, AC via pole 4) and no decision committed.",
-        "reasoning": "The presence of dangling pairs at both candidate sources suggests indecision rather than a failure mode. There is no evidence of a blown fuse, melted insulation, or burnt terminal."
+        "confidence": "high",
+        "description": "The fridge wiring was run during the van build but never terminated — the installation was simply never completed.",
+        "reasoning": "There is no evidence of a blown fuse, melted insulation, or burnt terminal near the fridge cable. The single dangling end at pole 4 bottom-right is consistent with a build that was paused before the final landing was made."
       },
-      "alternative_hypotheses": [
-        {
-          "description": "The fridge was once wired and then deliberately disconnected (e.g. controller LOAD output is unsafe to run a fridge from given the active renogy_rover_acr_e1 fault).",
-          "reasoning": "Plausible if the fridge is a 12/24 V DC unit and the LOAD output was the original feed."
-        }
-      ],
-      "suspected_components": ["controller", "circuit_breaker"],
+      "alternative_hypotheses": [],
+      "suspected_components": ["circuit_breaker"],
       "suspected_connections": [],
       "next_steps_recommended": [
-        "Identify the fridge model and confirm whether it is DC (12/24 V) or AC (220 V).",
-        "If DC: do NOT land it on the controller's LOAD output until renogy_rover_acr_e1 is resolved — the LOAD output is governed by the same faulty voltage sense and may switch off or refuse to power on.",
+        "Identify the fridge model and confirm whether it is DC (12/24V) or AC (220V).",
         "If AC: trace the dangling cable at pole 4 bottom-right (p4_bot_r) back to the fridge's plug/junction box, terminate it on the correct AC bus side, and resolve q_pole4_topology before energising.",
-        "Until terminated, cap exposed conductor ends — DC at the controller side and AC at the breaker — to prevent shorts inside the panel.",
-        "Add the eventual connections to schema.json once landed (and remove their placeholder_terminals entries)."
+        "Until terminated, cap the exposed conductor end to prevent shorts inside the panel.",
+        "Add the eventual connection to schema.json once landed (and remove the placeholder_terminals entry for p4_bot_r)."
       ],
-      "notes": "This is a wiring/installation issue, not a fault of any component. Logged as a known issue so it isn't forgotten and so anyone re-energising the system is aware of loose conductors inside the panel."
+      "notes": "This is a wiring/installation issue, not a fault of any component. The controller LOAD output has been ruled out as a candidate feed. Logged so the incomplete wiring is not overlooked when re-energising the system."
     }
   ],
 
