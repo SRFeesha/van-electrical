@@ -1,0 +1,18 @@
+# Van Electrical — Campervan Electrical System Schema
+
+> Machine-readable schema of a 24V LiFePO4 campervan electrical system: MPPT solar (Renogy Rover 40), inverter/charger (ECTIVE SSI 104), shore power inlet, DIN-rail protection panel, and roof-mounted PV panels.
+
+If you are an AI agent: fetch the raw schema JSON below — it is always current and requires no JavaScript.
+
+## Data
+
+- [Schema JSON — raw GitHub (always accessible)](https://raw.githubusercontent.com/SRFeesha/van-electrical/main/public/schema.json): Full machine-readable schema. Contains components, connections, subsystems, measurements (multimeter + controller-display + device-display readings), known issues with diagnostic evidence, and agent_field_descriptions that document every key.
+- [Schema JSON — served by this app](./schema.json): Same data, served as a static file alongside the interactive viewer. Also inlined into the page HTML for non-JS fetches.
+
+## Source code
+
+- [GitHub repository](https://github.com/SRFeesha/van-electrical): React app, schema, and validator script.
+
+## How to read the schema
+
+Top-level keys: `components` (physical devices + their terminals), `connections` (directed wires between terminals), `subsystems` (pv | battery_dc | ac), `measurements` (time-ordered physical readings keyed by ID), `known_issues` (active faults with leading + alternative hypotheses, evidence IDs, and next steps), `agent_field_descriptions` (documentation of every key). IDs in `known_issues[].evidence` and `alternative_hypotheses[].evidence` reference entries in `measurements`.

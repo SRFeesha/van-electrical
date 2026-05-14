@@ -172,6 +172,9 @@ export default function App() {
           <p className="subtitle">{schema.description}</p>
         </div>
         <div className="header-meta">
+          <a className="meta-link" href={schema.repository} target="_blank" rel="noreferrer">
+            GitHub ↗
+          </a>
           <a className="meta-link" href="./schema.json" target="_blank" rel="noreferrer">
             schema.json ↗
           </a>
