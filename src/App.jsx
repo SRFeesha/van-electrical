@@ -265,6 +265,10 @@ export default function App() {
               />
             ))}
           </div>
+          <div className="panel">
+            <h2>Measurement log</h2>
+            <MeasurementsTable measurements={schema.measurements} />
+          </div>
         </section>
       )}
 
@@ -706,6 +710,76 @@ function DetailPanel({ active, schema }) {
   }
 
   return null
+}
+
+function MeasurementsTable({ measurements }) {
+  // Sort newest date first; within a date preserve insertion order
+  const sorted = useMemo(
+    () => [...measurements].sort((a, b) => b.date.localeCompare(a.date)),
+    [measurements],
+  )
+
+  function renderWhat(m) {
+    if (m.kind === 'multimeter') {
+      if (typeof m.probes === 'string') return 'self-test — probes shorted'
+      const r = m.probes.red
+      const bk = m.probes.black
+      return `${r.component}:${r.terminal} / ${bk.component}:${bk.terminal}`
+    }
+    const dev = m.device || 'controller'
+    const screen = (m.screen || '').replace(/_/g, ' ')
+    return `${dev} · ${screen}`
+  }
+
+  function renderResult(m) {
+    if (m.kind === 'multimeter' && m.reading) {
+      return `${m.reading.value} ${m.reading.unit}`
+    }
+    if (m.displayed) {
+      return `${m.displayed.value} ${m.displayed.unit}`
+    }
+    return '—'
+  }
+
+  const kindMeta = {
+    multimeter:          { label: 'meter',       cls: 'mk-multimeter' },
+    controller_display:  { label: 'display',     cls: 'mk-ctrl' },
+    device_display:      { label: 'ext display', cls: 'mk-device' },
+  }
+
+  return (
+    <div className="mlog-wrap">
+      <table className="mlog-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Date</th>
+            <th>Kind</th>
+            <th>What measured</th>
+            <th>Result</th>
+            <th>System state</th>
+            <th>Implication</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((m) => {
+            const meta = kindMeta[m.kind] || { label: m.kind, cls: '' }
+            return (
+              <tr key={m.id} className={`mrow mrow-${m.kind}`}>
+                <td><code className="mlog-id">{m.id}</code></td>
+                <td><span className="mlog-date">{m.date}</span></td>
+                <td><span className={`mlog-kind ${meta.cls}`}>{meta.label}</span></td>
+                <td className="mlog-what">{renderWhat(m)}</td>
+                <td className="mlog-result"><code>{renderResult(m)}</code></td>
+                <td className="mlog-state">{m.system_state || '—'}</td>
+                <td className="mlog-impl">{m.implication}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
 }
 
 function KV({ label, children }) {

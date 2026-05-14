@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft-07/schema",
   "version": "1.0.0",
-  "updated": "2026-05-10",
+  "updated": "2026-05-14",
   "vehicle": "campervan",
   "title": "Van Electrical System Schema",
   "repository": "https://github.com/SRFeesha/van-electrical",
@@ -13,7 +13,7 @@
     "subsystems": "Logical groupings of connections by electrical circuit (PV side, battery DC, AC). Useful for filtering and reasoning about current flow.",
     "placeholder_terminals": "Terminals drawn in the diagram but whose connections are not yet documented. Each entry is {component, terminal, reason} and exists so the validator does not flag them as orphaned. Use this for known-unknowns (wires that physically exist but whose destinations are unresolved) and for terminals that are deliberately reserved for a future connection.",
     "known_issues": "Currently observed faults. Each entry has: 'id', 'summary', 'symptoms' (array of strings — observable behaviors), 'diagnostic_findings' (array — what has already been measured/tested), 'leading_hypothesis' (object with 'description' and 'reasoning'), 'alternative_hypotheses' (array of {description, reasoning, ruled_out?, evidence?}), 'suspected_components' (array of component IDs), 'suspected_connections' (array of connection IDs), 'evidence' (array of measurement IDs supporting the leading hypothesis), 'next_steps_recommended' (array of strings), and optional 'notes'.",
-    "measurements": "Time-ordered log of physical measurements. Each entry has 'kind' ('multimeter' | 'controller_display'), 'id', 'date', and a quantity/reading. Multimeter entries reference component terminals via probes.{red,black}.{component,terminal}, or the literal string 'shorted' for meter sanity tests. Controller-display entries record what the controller's own LCD reported on a given screen. known_issues[].evidence and known_issues[].alternative_hypotheses[].evidence reference these IDs.",
+    "measurements": "Time-ordered log of physical measurements. Each entry has 'kind' ('multimeter' | 'controller_display' | 'device_display'), 'id', 'date', and a quantity/reading. Multimeter entries reference component terminals via probes.{red,black}.{component,terminal}, or the literal string 'shorted' for meter sanity tests. Controller-display entries record what the controller's own LCD reported on a given screen. Device-display entries record a reading taken off an external device's own screen (e.g. a charger or power station); they carry 'device' (free-text label for the physical device), 'screen' (which screen or field was read), and 'displayed' ({value, unit}). known_issues[].evidence and known_issues[].alternative_hypotheses[].evidence reference these IDs.",
     "components_models": "Known hardware model/part numbers for each component. Keys mirror component IDs. For circuit_breaker, sub-keys are pole IDs. Null means the model is unknown."
   },
 
@@ -344,11 +344,17 @@
       ],
       "evidence": ["M1", "M2", "M3", "M4", "M5", "M7", "M8", "M9", "M10", "M11", "M14", "D1", "D2", "D3", "D6", "D10"],
       "leading_hypothesis": {
-        "confidence": "high",
+        "confidence": "medium",
         "description": "The battery BMS (Renogy RBT24100LFP) triggered deep-discharge protection, cutting its output to 0V. The controller entered E1 at that moment. The controller's ~11V display reading may be accurate — reflecting a PV back-feed residual seen at the BAT terminals while the BMS was disconnected — rather than an internal sensing fault.",
         "reasoning": "M2 records 0V at the battery posts immediately after BAT fuse cycling — the BMS shut its output. M3 shows voltage snapping to 30V the instant PV was reconnected, consistent with PV back-feeding into the BAT bus through the controller's internal diodes/FETs rather than the battery independently recovering. When the BMS is in protection mode, the controller's BAT terminals see only this back-fed PV residual (possibly ~11V at the relevant insolation level or through a resistive path), so the controller's ~11V reading may be accurate — a real E1 condition at the time of latch. The fault may have persisted as a latched error even after the BMS recovered."
       },
       "alternative_hypotheses": [
+        {
+          "description": "BMS deep-discharge protection has cut the battery's output and has not self-recovered between sessions; the controller's ~11 V reading at the time E1 was triggered may be real (a genuine BMS-disconnected bus voltage) rather than an internal sensing fault.",
+          "reasoning": "M17 and M18 record 0 V at the battery posts and controller BAT terminals in the 2026-05-13 session, confirming the BMS remained in protection mode without recovering over several days. EW3 and EW4 capture external-device screen readings during a BMS wake-up attempt. D11 records the controller display in the same session. Taken together these measurements show the battery's output has been cut for an extended period — consistent with deep-discharge protection latching the BMS. Under this hypothesis the controller's ~11 V reading was accurate at the moment E1 was triggered, not a sensor artifact.",
+          "ruled_out": false,
+          "evidence": ["M17", "M18", "M19", "EW3", "EW4", "D11"]
+        },
         {
           "description": "Hardware failure of the controller's internal battery voltage-sense circuit (or its calibration). The controller is reporting ~11V while the actual battery is at ~29V, so it locks itself into E1 (under-voltage) and refuses to charge.",
           "reasoning": "M4 reads 29V at the controller's own BAT+/BAT- terminal screws while D1/D2/D3 show the controller's LCD reporting 10.9-12.7V at the same moment (both with PV connected and BMS apparently recovered). M7-M11 measure 0V drop across every link of the BAT+ and BAT- paths. M14/D6 show the PV-sense path reads correctly (40V at probes, 37.8V on display), which would isolate a fault to the BAT-side analog front-end inside the controller. Not ruled out — would explain the M4-vs-display mismatch if the controller's display readings were captured while the BMS was active.",
@@ -379,7 +385,7 @@
         "If the controller still shows E1 and ~11V on the display after the BMS is confirmed active and wiring measures ~29V at the controller's own BAT terminal screws, the hardware sensing fault hypothesis becomes more likely — proceed to a Renogy warranty or replacement claim. Capture a photo or video of the multimeter (~29V at the BAT screws) alongside the controller display (~11V) as evidence.",
         "Until resolved, do not rely on the controller for charging. Avoid repeated fast fuse cycling, which can re-trigger BMS protection via inrush current."
       ],
-      "notes": "ACr + E1 on the Rover 40 = battery under-voltage / over-discharge protection. The key new evidence is M2 (0V at battery posts with BMS in protection) and M3 (instant voltage recovery when PV connected, suggesting back-feed rather than real battery recovery). The controller's ~11V reading may be accurate for the moment E1 was triggered. If BMS wake-up does not resolve E1, the internal sensing fault becomes the likely cause. Full audit trail in the top-level 'measurements' field (IDs M1-M16, D1-D10)."
+      "notes": "ACr + E1 on the Rover 40 = battery under-voltage / over-discharge protection. The key new evidence is M2 (0V at battery posts with BMS in protection) and M3 (instant voltage recovery when PV connected, suggesting back-feed rather than real battery recovery). The controller's ~11V reading may be accurate for the moment E1 was triggered. If BMS wake-up does not resolve E1, the internal sensing fault becomes the likely cause. Full audit trail in the top-level 'measurements' field (IDs M1-M19, D1-D11, EW3-EW4). Battery terminal voltage changed between sessions: ~29-30 V on 2026-05-09 (M1, M6, M13) vs 0 V on 2026-05-13 (M17) — consistent with the BMS remaining in protection mode rather than self-recovering. Both the BMS-protection and controller-sense-fault routes remain open until a successful BMS wake-up or a controller replacement test is performed."
     }
   ],
 
@@ -593,12 +599,86 @@
     },
 
     {
+      "id": "M17",
+      "kind": "multimeter",
+      "date": "2026-05-13",
+      "quantity": "voltage_dc",
+      "meter_setup": { "range": "200V" },
+      "probes": {
+        "red":   { "component": "battery", "terminal": "bat_pos" },
+        "black": { "component": "battery", "terminal": "bat_neg" }
+      },
+      "reading": { "value": 0, "unit": "V" },
+      "system_state": "new session; BMS in protection, battery output cut",
+      "implication": "Battery posts read 0 V — BMS deep-discharge protection has persisted since the 2026-05-09 session; battery has not self-recovered. [UPDATE: confirm actual reading from session notes]"
+    },
+    {
+      "id": "M18",
+      "kind": "multimeter",
+      "date": "2026-05-13",
+      "quantity": "voltage_dc",
+      "meter_setup": { "range": "200V" },
+      "probes": {
+        "red":   { "component": "controller", "terminal": "ctrl_bat_pos" },
+        "black": { "component": "controller", "terminal": "ctrl_bat_neg" }
+      },
+      "reading": { "value": 0, "unit": "V" },
+      "system_state": "new session; BMS output cut",
+      "implication": "0 V at the controller's own BAT terminals — the controller is seeing a dead bus. Confirms the BMS has not recovered between sessions. [UPDATE: confirm actual reading from session notes]"
+    },
+    {
+      "id": "M19",
+      "kind": "multimeter",
+      "date": "2026-05-13",
+      "quantity": "voltage_dc",
+      "meter_setup": { "range": "200V" },
+      "probes": {
+        "red":   { "component": "battery", "terminal": "bat_pos" },
+        "black": { "component": "battery", "terminal": "bat_neg" }
+      },
+      "reading": { "value": 0, "unit": "V" },
+      "system_state": "new session; during or after BMS wake-up attempt",
+      "implication": "[PLACEHOLDER — update reading, probes, and implication with actual 2026-05-13 measurement data]"
+    },
+    {
+      "id": "D11",
+      "kind": "controller_display",
+      "date": "2026-05-13",
+      "device": "controller",
+      "screen": "battery_voltage",
+      "displayed": { "value": 0, "unit": "V" },
+      "system_state": "new session; controller in ACr+E1, BMS output cut",
+      "implication": "[PLACEHOLDER — update displayed value and implication with actual 2026-05-13 controller LCD reading]"
+    },
+    {
+      "id": "EW3",
+      "kind": "device_display",
+      "date": "2026-05-13",
+      "device": "external_device",
+      "screen": "output_voltage",
+      "displayed": { "value": 0, "unit": "V" },
+      "system_state": "new session; external device connected to battery terminals for BMS wake-up attempt",
+      "implication": "[PLACEHOLDER — update device label, screen name, value, and implication with actual 2026-05-13 external-device reading]"
+    },
+    {
+      "id": "EW4",
+      "kind": "device_display",
+      "date": "2026-05-13",
+      "device": "external_device",
+      "screen": "output_current",
+      "displayed": { "value": 0, "unit": "A" },
+      "system_state": "new session; external device connected to battery terminals for BMS wake-up attempt",
+      "implication": "[PLACEHOLDER — update device label, screen name, value, and implication with actual 2026-05-13 external-device reading]"
+    },
+
+    {
       "id": "D1",
       "kind": "controller_display",
       "date": "2026-05-09",
       "device": "controller",
       "screen": "battery_voltage",
       "displayed": { "value": 10.9, "unit": "V" },
+      "system_state": "controller in ACr+E1; battery (BMS recovered) and PV connected, system live",
       "implication": "Smoking gun. Mismatches M4 (29 V at the same controller BAT terminals) by ~18 V, which no wiring resistance can produce at zero current."
     },
     {
@@ -608,6 +688,7 @@
       "device": "controller",
       "screen": "battery_voltage",
       "displayed": { "value": 12.7, "unit": "V" },
+      "system_state": "controller in ACr+E1; battery (BMS recovered) and PV connected, system live",
       "implication": "Reading drifts between samples while the actual battery is steady at ~29-30 V — typical of a broken sense circuit, not of a real voltage."
     },
     {
@@ -617,6 +698,7 @@
       "device": "controller",
       "screen": "battery_voltage",
       "displayed": { "value": 11.1, "unit": "V" },
+      "system_state": "controller in ACr+E1; battery (BMS recovered) and PV connected, system live",
       "implication": "Same screen, different sample — confirms the ~11 V neighbourhood is the controller's persistent (wrong) view of the battery."
     },
     {
@@ -626,6 +708,7 @@
       "device": "controller",
       "screen": "battery_state_of_charge",
       "displayed": { "value": 0.0, "unit": "%" },
+      "system_state": "controller in ACr+E1; battery (BMS recovered) and PV connected, system live",
       "implication": "Derived from the bogus voltage — useless while sensing is broken."
     },
     {
@@ -635,6 +718,7 @@
       "device": "controller",
       "screen": "battery_state_of_charge",
       "displayed": { "value": 20.2, "unit": "%" },
+      "system_state": "controller in ACr+E1; battery (BMS recovered) and PV connected, system live",
       "implication": "Same field as D4 sampled later — wanders with D2/D3, again because the underlying voltage estimate is wrong."
     },
     {
@@ -644,6 +728,7 @@
       "device": "controller",
       "screen": "pv_voltage",
       "displayed": { "value": 37.8, "unit": "V" },
+      "system_state": "controller in ACr+E1; sun on panels, PV fuse closed, battery (BMS recovered) connected",
       "implication": "Agrees with M14 (40 V at PV terminals) within meter tolerance. The PV-sense path is fine — it is specifically the BAT-sense path that is broken inside the unit. This isolates the fault to one half of the controller's analog front-end."
     },
     {
@@ -653,6 +738,7 @@
       "device": "controller",
       "screen": "charging_current",
       "displayed": { "value": 0.0, "unit": "A" },
+      "system_state": "controller in ACr+E1; battery (BMS recovered) and PV connected, system live",
       "implication": "Consistent with E1 latching the charge stage off."
     },
     {
@@ -662,6 +748,7 @@
       "device": "controller",
       "screen": "ah_today",
       "displayed": { "value": 0, "unit": "Ah" },
+      "system_state": "controller in ACr+E1; battery (BMS recovered) and PV connected, system live",
       "implication": "Zero charge delivered today — same root cause as D7."
     },
     {
@@ -671,6 +758,7 @@
       "device": "controller",
       "screen": "battery_temperature",
       "displayed": { "value": 14.0, "unit": "°C" },
+      "system_state": "controller in ACr+E1; battery (BMS recovered) and PV connected, system live",
       "implication": "Plausible value — recorded for context, not load-bearing for the diagnosis."
     },
     {
@@ -680,6 +768,7 @@
       "device": "controller",
       "screen": "error_code",
       "displayed": { "value": "ACr + E1", "unit": "code" },
+      "system_state": "controller in ACr+E1; battery (BMS recovered) and PV connected, system live",
       "implication": "ACr (acclimating/charge-blocked) + E1 (battery under-voltage / over-discharge protection) — the controller's own statement of why it has stopped charging."
     }
   ]
