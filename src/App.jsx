@@ -254,6 +254,10 @@ export default function App() {
       {!editMode && (
         <section className="info-panels">
           <div className="panel">
+            <h2>Measurement log</h2>
+            <MeasurementsTable measurements={schema.measurements} />
+          </div>
+          <div className="panel">
             <h2>Known issues</h2>
             {schema.known_issues.length === 0 && <p className="muted">None recorded.</p>}
             {schema.known_issues.map((iss) => (
@@ -267,10 +271,6 @@ export default function App() {
                 onClick={() => handleClick('issue', iss.id)}
               />
             ))}
-          </div>
-          <div className="panel">
-            <h2>Measurement log</h2>
-            <MeasurementsTable measurements={schema.measurements} />
           </div>
         </section>
       )}
@@ -758,13 +758,13 @@ function MeasurementsTable({ measurements }) {
       <table className="mlog-table">
         <thead>
           <tr>
-            <th>ID</th>
-            <th>Date</th>
-            <th>Kind</th>
+            <th>Implication</th>
             <th>What measured</th>
             <th>Result</th>
             <th>System state</th>
-            <th>Implication</th>
+            <th>ID</th>
+            <th>Date</th>
+            <th>Kind</th>
           </tr>
         </thead>
         <tbody>
@@ -772,13 +772,13 @@ function MeasurementsTable({ measurements }) {
             const meta = kindMeta[m.kind] || { label: m.kind, cls: '' }
             return (
               <tr key={m.id} className={`mrow mrow-${m.kind}`}>
-                <td><code className="mlog-id">{m.id}</code></td>
-                <td><span className="mlog-date">{m.date}</span></td>
-                <td><span className={`mlog-kind ${meta.cls}`}>{meta.label}</span></td>
+                <td className="mlog-impl">{m.implication}</td>
                 <td className="mlog-what">{renderWhat(m)}</td>
                 <td className="mlog-result"><code>{renderResult(m)}</code></td>
                 <td className="mlog-state">{m.system_state || '—'}</td>
-                <td className="mlog-impl">{m.implication}</td>
+                <td><code className="mlog-id">{m.id}</code></td>
+                <td><span className="mlog-date">{m.date}</span></td>
+                <td><span className={`mlog-kind ${meta.cls}`}>{meta.label}</span></td>
               </tr>
             )
           })}
