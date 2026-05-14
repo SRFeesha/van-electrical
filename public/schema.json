@@ -351,9 +351,9 @@
       "alternative_hypotheses": [
         {
           "description": "BMS deep-discharge protection has cut the battery's output and has not self-recovered between sessions; the controller's ~11 V reading at the time E1 was triggered may be real (a genuine BMS-disconnected bus voltage) rather than an internal sensing fault.",
-          "reasoning": "M17 and M18 record 0 V at the battery posts and controller BAT terminals in the 2026-05-13 session, confirming the BMS remained in protection mode without recovering over several days. EW3 and EW4 capture external-device screen readings during a BMS wake-up attempt. D11 records the controller display in the same session. Taken together these measurements show the battery's output has been cut for an extended period — consistent with deep-discharge protection latching the BMS. Under this hypothesis the controller's ~11 V reading was accurate at the moment E1 was triggered, not a sensor artifact.",
+          "reasoning": "M17 records 0 V at the battery terminals with both fuses open — the pack produces nothing when fully isolated. M18 shows ~30 V appearing at the battery terminals the instant PV is reconnected, consistent with PV back-feed through the controller rather than true battery recovery. M19 shows 24-30 V fluctuating during the ECO-WORTHY charger session — ambiguous; may reflect the charger's own output rather than true battery voltage (probe placement uncertain). EW1-EW3 record the ECO-WORTHY pulsing at 23.9 V / 20% SOC but making no charge progress over ~1.5 h; SC1 shows only 13-14 W bursts at the AC supply side, confirming no sustained charge current reached the pack. EW4 records the charger showing no battery reading at all when the pack was moved indoors, possibly due to clamp quality or a fully-latched BMS. D11 records the Rover returning ACr+E1 even after the controller's built-in lithium-reactivation attempt. Taken together: the BMS has not self-recovered and the charger attempts at available current levels were insufficient to wake it.",
           "ruled_out": false,
-          "evidence": ["M17", "M18", "M19", "EW3", "EW4", "D11"]
+          "evidence": ["M17", "M18", "M19", "EW1", "EW2", "EW3", "SC1", "EW4", "D11"]
         },
         {
           "description": "Hardware failure of the controller's internal battery voltage-sense circuit (or its calibration). The controller is reporting ~11V while the actual battery is at ~29V, so it locks itself into E1 (under-voltage) and refuses to charge.",
@@ -385,7 +385,7 @@
         "If the controller still shows E1 and ~11V on the display after the BMS is confirmed active and wiring measures ~29V at the controller's own BAT terminal screws, the hardware sensing fault hypothesis becomes more likely — proceed to a Renogy warranty or replacement claim. Capture a photo or video of the multimeter (~29V at the BAT screws) alongside the controller display (~11V) as evidence.",
         "Until resolved, do not rely on the controller for charging. Avoid repeated fast fuse cycling, which can re-trigger BMS protection via inrush current."
       ],
-      "notes": "ACr + E1 on the Rover 40 = battery under-voltage / over-discharge protection. The key new evidence is M2 (0V at battery posts with BMS in protection) and M3 (instant voltage recovery when PV connected, suggesting back-feed rather than real battery recovery). The controller's ~11V reading may be accurate for the moment E1 was triggered. If BMS wake-up does not resolve E1, the internal sensing fault becomes the likely cause. Full audit trail in the top-level 'measurements' field (IDs M1-M19, D1-D11, EW3-EW4). Battery terminal voltage changed between sessions: ~29-30 V on 2026-05-09 (M1, M6, M13) vs 0 V on 2026-05-13 (M17) — consistent with the BMS remaining in protection mode rather than self-recovering. Both the BMS-protection and controller-sense-fault routes remain open until a successful BMS wake-up or a controller replacement test is performed."
+      "notes": "ACr + E1 on the Rover 40 = battery under-voltage / over-discharge protection. The key new evidence is M2 (0V at battery posts with BMS in protection) and M3 (instant voltage recovery when PV connected, suggesting back-feed rather than real battery recovery). The controller's ~11V reading may be accurate for the moment E1 was triggered. If BMS wake-up does not resolve E1, the internal sensing fault becomes the likely cause. Full audit trail in the top-level 'measurements' field (IDs M1-M19, D1-D11, EW1-EW4, SC1). Battery terminal voltage changed between sessions: ~29-30 V on 2026-05-09 (M1, M6, M13) vs 0 V on 2026-05-13 (M17) — consistent with the BMS remaining in protection mode rather than self-recovering. Both the BMS-protection and controller-sense-fault routes remain open until a successful BMS wake-up or a controller replacement test is performed."
     }
   ],
 
@@ -599,79 +599,6 @@
     },
 
     {
-      "id": "M17",
-      "kind": "multimeter",
-      "date": "2026-05-13",
-      "quantity": "voltage_dc",
-      "meter_setup": { "range": "200V" },
-      "probes": {
-        "red":   { "component": "battery", "terminal": "bat_pos" },
-        "black": { "component": "battery", "terminal": "bat_neg" }
-      },
-      "reading": { "value": 0, "unit": "V" },
-      "system_state": "new session; BMS in protection, battery output cut",
-      "implication": "Battery posts read 0 V — BMS deep-discharge protection has persisted since the 2026-05-09 session; battery has not self-recovered. [UPDATE: confirm actual reading from session notes]"
-    },
-    {
-      "id": "M18",
-      "kind": "multimeter",
-      "date": "2026-05-13",
-      "quantity": "voltage_dc",
-      "meter_setup": { "range": "200V" },
-      "probes": {
-        "red":   { "component": "controller", "terminal": "ctrl_bat_pos" },
-        "black": { "component": "controller", "terminal": "ctrl_bat_neg" }
-      },
-      "reading": { "value": 0, "unit": "V" },
-      "system_state": "new session; BMS output cut",
-      "implication": "0 V at the controller's own BAT terminals — the controller is seeing a dead bus. Confirms the BMS has not recovered between sessions. [UPDATE: confirm actual reading from session notes]"
-    },
-    {
-      "id": "M19",
-      "kind": "multimeter",
-      "date": "2026-05-13",
-      "quantity": "voltage_dc",
-      "meter_setup": { "range": "200V" },
-      "probes": {
-        "red":   { "component": "battery", "terminal": "bat_pos" },
-        "black": { "component": "battery", "terminal": "bat_neg" }
-      },
-      "reading": { "value": 0, "unit": "V" },
-      "system_state": "new session; during or after BMS wake-up attempt",
-      "implication": "[PLACEHOLDER — update reading, probes, and implication with actual 2026-05-13 measurement data]"
-    },
-    {
-      "id": "D11",
-      "kind": "controller_display",
-      "date": "2026-05-13",
-      "device": "controller",
-      "screen": "battery_voltage",
-      "displayed": { "value": 0, "unit": "V" },
-      "system_state": "new session; controller in ACr+E1, BMS output cut",
-      "implication": "[PLACEHOLDER — update displayed value and implication with actual 2026-05-13 controller LCD reading]"
-    },
-    {
-      "id": "EW3",
-      "kind": "device_display",
-      "date": "2026-05-13",
-      "device": "external_device",
-      "screen": "output_voltage",
-      "displayed": { "value": 0, "unit": "V" },
-      "system_state": "new session; external device connected to battery terminals for BMS wake-up attempt",
-      "implication": "[PLACEHOLDER — update device label, screen name, value, and implication with actual 2026-05-13 external-device reading]"
-    },
-    {
-      "id": "EW4",
-      "kind": "device_display",
-      "date": "2026-05-13",
-      "device": "external_device",
-      "screen": "output_current",
-      "displayed": { "value": 0, "unit": "A" },
-      "system_state": "new session; external device connected to battery terminals for BMS wake-up attempt",
-      "implication": "[PLACEHOLDER — update device label, screen name, value, and implication with actual 2026-05-13 external-device reading]"
-    },
-
-    {
       "id": "D1",
       "kind": "controller_display",
       "date": "2026-05-09",
@@ -770,6 +697,109 @@
       "displayed": { "value": "ACr + E1", "unit": "code" },
       "system_state": "controller in ACr+E1; battery (BMS recovered) and PV connected, system live",
       "implication": "ACr (acclimating/charge-blocked) + E1 (battery under-voltage / over-discharge protection) — the controller's own statement of why it has stopped charging."
+    },
+
+    {
+      "id": "M17",
+      "kind": "multimeter",
+      "date": "2026-05-13",
+      "quantity": "voltage_dc",
+      "meter_setup": { "range": "200V" },
+      "probes": {
+        "red":   { "component": "battery", "terminal": "bat_pos" },
+        "black": { "component": "battery", "terminal": "bat_neg" }
+      },
+      "reading": { "value": 0, "unit": "V" },
+      "system_state": "PV fuse open and BAT fuse open — battery isolated from controller; no source connected",
+      "implication": "Battery terminals read 0 V with nothing connected. Consistent with BMS deep-discharge protection having cut the battery's output — but on its own does not distinguish a tripped BMS from a genuinely flat pack."
+    },
+    {
+      "id": "M18",
+      "kind": "multimeter",
+      "date": "2026-05-13",
+      "quantity": "voltage_dc",
+      "meter_setup": { "range": "200V" },
+      "probes": {
+        "red":   { "component": "battery", "terminal": "bat_pos" },
+        "black": { "component": "battery", "terminal": "bat_neg" }
+      },
+      "reading": { "value": 30, "unit": "V" },
+      "system_state": "PV fuse closed, sun on panels; battery terminals probed directly",
+      "implication": "Voltage appears at the battery terminals (~29-30 V) as soon as PV is connected. Likely PV voltage back-feeding through the controller onto the BAT line rather than true battery voltage — supports the BMS-cutoff reading. UNCERTAIN: Ben was not fully sure the rise was instantaneous vs gradual."
+    },
+    {
+      "id": "M19",
+      "kind": "multimeter",
+      "date": "2026-05-13",
+      "quantity": "voltage_dc",
+      "meter_setup": { "range": "200V" },
+      "probes": {
+        "red":   { "component": "battery", "terminal": "bat_pos" },
+        "black": { "component": "battery", "terminal": "bat_neg" }
+      },
+      "reading": { "value": 30, "unit": "V" },
+      "system_state": "ECO-WORTHY 24V/LFP charger connected to battery via clamps; BAT fuse open; PV fuse open; inverter connected but switched off; Schneider PPS730 supplying 230V to the charger",
+      "implication": "Reading fluctuated 24-30 V and never fell to 0 V. First read as the BMS being held open; later reinterpreted as the charger's own output voltage seen at the clamps. UNCERTAIN: Ben was not sure whether the probes were on the battery posts or the charger clamps. Not conclusive alone — see EW3 (SOC unchanged after 1.5 h)."
+    },
+    {
+      "id": "EW1",
+      "kind": "device_display",
+      "date": "2026-05-13",
+      "device": "eco_worthy_charger",
+      "screen": "battery_voltage",
+      "displayed": { "value": 23.9, "unit": "V" },
+      "system_state": "ECO-WORTHY connected to LiFePO4 via clamps in the van; 24V LFP mode; Schneider supplying 230V. Display cycling: OFF ~3 s, then voltage/SOC shown ~0.5-1 s, repeating.",
+      "implication": "During the brief ON phase the charger reads 23.9 V on the pack — not 0 V from the charger's view. Consistent with the BMS flickering open under the charger's probing pulses rather than latching open."
+    },
+    {
+      "id": "EW2",
+      "kind": "device_display",
+      "date": "2026-05-13",
+      "device": "eco_worthy_charger",
+      "screen": "state_of_charge",
+      "displayed": { "value": 20, "unit": "%" },
+      "system_state": "Same setup as EW1 — ECO-WORTHY pulsing on the LiFePO4 in the van.",
+      "implication": "Charger reports 20% SOC during the ON phase. See EW3 — this value had not moved after ~1.5 h, indicating no real charge accumulation."
+    },
+    {
+      "id": "EW3",
+      "kind": "device_display",
+      "date": "2026-05-13",
+      "device": "eco_worthy_charger",
+      "screen": "state_of_charge",
+      "displayed": { "value": 20, "unit": "%" },
+      "system_state": "Same setup as EW1/EW2, after ~1.5 hours of the charger pulsing.",
+      "implication": "SOC indicator unchanged from the initial 20% after ~1.5 h — the battery is not actually accumulating charge. ECO-WORTHY at 10 A max in 24V mode is not latching the BMS open. Key evidence that the charger attempts failed."
+    },
+    {
+      "id": "SC1",
+      "kind": "device_display",
+      "date": "2026-05-13",
+      "device": "schneider_pps730",
+      "screen": "output_power",
+      "displayed": { "value": 14, "unit": "W" },
+      "system_state": "Schneider PPS730 supplying 230V to the ECO-WORTHY during the van charging attempt.",
+      "implication": "Output cycles between ~2 W idle and ~13-14 W bursts, in sync with the charger's display cycling. Very low average power — confirms only brief pulses of current are flowing, not sustained charging."
+    },
+    {
+      "id": "EW4",
+      "kind": "device_display",
+      "date": "2026-05-14",
+      "device": "eco_worthy_charger",
+      "screen": "status",
+      "displayed": { "value": "OFF (no battery reading)", "unit": "state" },
+      "system_state": "Battery moved indoors; ECO-WORTHY connected directly to the battery (no van wiring); LFP mode, 5 A set; Schneider supplying 230V.",
+      "implication": "Indoors the charger display stays fully OFF with no battery reading at all — unlike the van behaviour where it at least pulsed 23.9 V. Suggests the charger sees 0 V at the terminals and will not even attempt to pulse. Possible contributors: clamp contact quality, or BMS fully closed."
+    },
+    {
+      "id": "D11",
+      "kind": "controller_display",
+      "date": "2026-05-14",
+      "device": "controller",
+      "screen": "error_code",
+      "displayed": { "value": "ACr + E1", "unit": "code" },
+      "system_state": "Rover 40 in 24V LiFePO4 mode, PV connected with sun available; attempting the controller's built-in lithium reactivation.",
+      "implication": "With sun on the panels and the controller in 24V lithium mode, the Rover returns to ACr + E1 rather than entering its lithium-reactivation routine. The reactivation attempt did not succeed."
     }
   ]
 }

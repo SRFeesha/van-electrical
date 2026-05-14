@@ -736,7 +736,10 @@ function MeasurementsTable({ measurements }) {
       return `${m.reading.value} ${m.reading.unit}`
     }
     if (m.displayed) {
-      return `${m.displayed.value} ${m.displayed.unit}`
+      const { value, unit } = m.displayed
+      // String values (e.g. "ACr + E1", "OFF (no battery reading)") are self-describing;
+      // appending the unit word ("code", "state") would be redundant.
+      return typeof value === 'string' ? value : `${value} ${unit}`
     }
     return '—'
   }
